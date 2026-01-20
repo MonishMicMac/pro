@@ -1,0 +1,812 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller; 
+use App\Models\Lead;
+use Illuminate\Http\Request;
+use Yajra\DataTables\Facades\DataTables;
+use Carbon\Carbon;
+use App\Models\LeadHandoverPhoto;
+use App\Models\FabricatorRequest;
+
+use App\Helpers\LeadHelper;
+
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+
+class LeadController extends Controller
+{
+public function storeSiteIdentification(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'user_id'          => 'required|exists:users,id',
+        'city'             => 'required|string|max:255',
+        'site_area'        => 'required|string|max:255',
+        'site_address'     => 'required|string',
+        'latitude'         => 'required|numeric|between:-90,90',
+        'longitude'        => 'required|numeric|between:-180,180',
+        'type_of_building' => 'required|string|max:255',
+        'building_status'  => 'required|string|max:255',
+        'image'            => 'required|image|mimes:jpeg,png,jpg|max:5120',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    $lead = Lead::create([
+        'user_id'          => $request->user_id,
+        'city'             => $request->city,
+        'site_area'        => $request->site_area,
+        'site_address'     => $request->site_address,
+        'latitude'         => $request->latitude,
+        'longitude'        => $request->longitude,
+        'type_of_building' => $request->type_of_building,
+        'building_status'  => $request->building_status,
+
+        // System-controlled fields
+        'lead_stage'  => 0,
+        'lead_source' => 'OWN',
+        'status'      => '0',
+        'created_by'  => $request->user_id,
+    ]);
+
+    if ($request->hasFile('image')) {
+        $imagePath = $request->file('image')->store('lead_images', 'public');
+        \App\Models\LeadImage::create([
+            'lead_id'    => $lead->id,
+            'lead_stage' => '0',
+            'img_path'   => $imagePath,
+            'action'     => '0'
+        ]);
+    }
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Site identification created successfully',
+        'data'    => [
+            'id'         => $lead->id,
+            'lead_stage' => $lead->lead_stage,
+            'created_at' => $lead->created_at,
+        ],
+    ], 200);
+}
+
+
+
+// Add this to your existing LeadController
+
+public function getLeadsByUser(Request $request)
+{
+    // 1. Validate the input
+    $validator = Validator::make($request->all(), [
+        'user_id'   => 'required|exists:users,id',
+        'from_date' => 'nullable|date',
+        'to_date'   => 'nullable|date|after_or_equal:from_date',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    // 2. Start the query
+    $query = Lead::where('user_id', $request->user_id);
+
+    // 3. Apply optional date filters (using created_at)
+    if ($request->filled('from_date')) {
+        $query->whereDate('created_at', '>=', $request->from_date);
+    }
+
+    if ($request->filled('to_date')) {
+        $query->whereDate('created_at', '<=', $request->to_date);
+    }
+
+    // 4. Get the results (ordered by newest first)
+    $leads = $query->orderBy('created_at', 'desc')->get();
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Leads retrieved successfully',
+        'count'   => $leads->count(),
+        'data'    => $leads,
+    ], 200);
+}
+
+
+public function leadCheckIn(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'lead_id' => 'required|exists:leads,id',
+        'inlat'   => 'required',
+        'inlong'  => 'required',
+        'image'   => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+    }
+
+    $imagePath = null;
+    if ($request->hasFile('image')) {
+        $imagePath = $request->file('image')->store('visits', 'public');
+    }
+
+    $visit = LeadVisit::create([
+        'lead_id'     => $request->lead_id,
+        'intime_time' => Carbon::now()->toTimeString(),
+        'inlat'       => $request->inlat,
+        'inlong'      => $request->inlong,
+        'image'       => $imagePath,
+        'action'      => 'In-Progress'
+    ]);
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Check-in successful',
+        'data'    => $visit
+    ], 201);
+}
+
+public function leadCheckOut(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'visit_id' => 'required|exists:lead_visits,id',
+        'outlat'   => 'required',
+        'outlong'  => 'required',
+        'remarks'  => 'required|string',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+    }
+
+    $visit = LeadVisit::find($request->visit_id);
+    
+    $visit->update([
+        'out_time' => Carbon::now()->toTimeString(),
+        'outlat'   => $request->outlat,
+        'outlong'  => $request->outlong,
+        'remarks'  => $request->remarks,
+        'action'   => 'Completed'
+    ]);
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Check-out successful',
+        'data'    => $visit
+    ], 200);
+}
+
+
+public function storeFollowupMeeting(Request $request)
+{
+    // 1. Validate the specific fields required for this stage
+    $validator = Validator::make($request->all(), [
+        'lead_id'                  => 'required|exists:leads,id',
+        'current_building_stage'   => 'required|string|max:255',
+        'total_required_area_sqft' => 'required|numeric|min:1',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    // 2. Find the lead
+    $lead = Lead::find($request->lead_id);
+
+    // 3. Update the lead details and move to stage 3
+    $lead->update([
+        'building_status'          => $request->current_building_stage,
+        'total_required_area_sqft' => $request->total_required_area_sqft,
+        'lead_stage'               => 3, // Changed to Follow-up stage
+    ]);
+
+    // 4. Log the status using your existing Helper
+    LeadHelper::logStatus(
+        $lead,
+        $request->current_building_stage,
+        3
+    );
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Follow-up meeting details updated and lead moved to Stage 3',
+        'data'    => $lead
+    ], 200);
+}
+
+public function storeMeasurements(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'lead_id' => 'required|exists:leads,id',
+        'user_id' => 'required|exists:users,id',
+        'measurements' => 'required|array|min:1',
+        'measurements.*.width_val'   => 'required|numeric',
+        'measurements.*.width_unit'  => 'required|in:mm,ft,inch',
+        'measurements.*.height_val'  => 'required|numeric',
+        'measurements.*.height_unit' => 'required|in:mm,ft,inch',
+        'measurements.*.qty'         => 'required|integer|min:1',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        foreach ($request->measurements as $item) {
+            $wInFeet = $this->convertToFeet($item['width_val'], $item['width_unit']);
+            $hInFeet = $this->convertToFeet($item['height_val'], $item['height_unit']);
+            $calculatedSqft = $wInFeet * $hInFeet * $item['qty'];
+
+            MeasurementDetail::create([
+                'lead_id'     => $request->lead_id,
+                'user_id'     => $request->user_id,
+                'product'     => $item['product'],
+                'design_code' => $item['design_code'],
+                'area'        => $item['area'],
+                'width_val'   => $item['width_val'],   // Saved to width_val
+                'width_unit'  => $item['width_unit'],
+                'height_val'  => $item['height_val'],  // Saved to height_val
+                'height_unit' => $item['height_unit'],
+                'qty'         => $item['qty'],
+                'color'       => $item['color'],
+                'sqft'        => round($calculatedSqft, 2),
+                'notes'       => $item['notes'] ?? null,
+            ]);
+        }
+
+        Lead::where('id', $request->lead_id)->update(['lead_stage' => 4]);
+        DB::commit();
+
+        return response()->json(['status' => true, 'message' => 'Success'], 201);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['status' => false, 'message' => $e->getMessage()], 500);
+    }
+}
+
+    /**
+     * Helper to convert various units to Feet
+     */
+    private function convertToFeet($value, $unit) 
+    {
+        switch ($unit) {
+            case 'inch': 
+                return $value / 12;
+            case 'mm':   
+                return $value / 304.8;
+            case 'ft':   
+                return $value;
+            default:     
+                return $value;
+        }
+    }
+
+
+public function getMeasurementsByLead(Request $request)
+{
+    // 1. Validate that the lead exists
+    $validator = Validator::make($request->all(), [
+        'lead_id' => 'required|exists:leads,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    // 2. Fetch measurements with lead details
+    $measurements = MeasurementDetail::where('lead_id', $request->lead_id)
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+    // 3. Optional: Calculate a grand total of Sq.ft for the entire lead
+    $totalLeadSqft = $measurements->sum('sqft');
+
+    return response()->json([
+        'status'   => true,
+        'message'  => 'Measurements retrieved successfully',
+        'count'    => $measurements->count(),
+        'total_lead_sqft' => round($totalLeadSqft, 2),
+        'data'     => $measurements,
+    ], 200);
+}
+
+
+public function sendToFabricator(Request $request)
+{
+    // 1. Validate the request
+    $validator = Validator::make($request->all(), [
+        'lead_id'       => 'required|exists:leads,id',
+        'fabricator_id' => 'required|exists:fabricator_requests,id',
+        'approx_sqft'   => 'required|numeric|min:0.01',
+        'notes'         => 'nullable|string',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        // 2. Store the fabricator request
+        $fabRequest = FabricatorRequest::create([
+            'lead_id'       => $request->lead_id,
+            'fabricator_id' => $request->fabricator_id,
+            'approx_sqft'   => $request->approx_sqft,
+            'notes'         => $request->notes,
+        ]);
+
+        // 3. Update Lead Stage to 5
+        $lead = Lead::find($request->lead_id);
+        $lead->update(['lead_stage' => 5]);
+
+        // 4. Log the status change
+        LeadHelper::logStatus(
+            $lead,
+            $lead->building_status,
+            5
+        );
+
+        DB::commit();
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Request sent to fabricator successfully',
+            'data'    => $fabRequest
+        ], 201);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'status'  => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+public function getLeadMeasurements(Request $request)
+{
+    // 1. Validate that the lead_id is provided and exists
+    $validator = Validator::make($request->all(), [
+        'lead_id' => 'required|exists:leads,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    // 2. Fetch all measurement records for this lead
+    $measurements = \App\Models\MeasurementDetail::where('lead_id', $request->lead_id)
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+    // 3. Optional: Calculate the total Sq.ft for all items in this lead
+    $totalSqft = $measurements->sum('sqft');
+
+    return response()->json([
+        'status'         => true,
+        'message'        => 'Measurement details retrieved successfully',
+        'total_items'    => $measurements->count(),
+        'total_lead_sqft' => round($totalSqft, 2),
+        'data'           => $measurements,
+    ], 200);
+}
+
+public function getFabricatorAssignments(Request $request)
+{
+    // 1. Validate the fabricator ID
+    $validator = Validator::make($request->all(), [
+        'fabricator_id' => 'required|exists:users,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    // 2. Fetch requests with related Lead, Lead Creator (User), and Measurement Details
+    $assignments = \App\Models\FabricatorRequest::with([
+            'lead:id,name,user_id', // Get lead name and the owner ID
+            'lead.assignedUser:id,name' // Get the name of the salesperson (User)
+        ])
+        ->where('fabricator_id', $request->fabricator_id)
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->map(function ($request) {
+            // 3. Attach all measurements belonging to this lead
+            $request->measurements = \App\Models\MeasurementDetail::where('lead_id', $request->lead_id)->get();
+            return $request;
+        });
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Fabricator assignments retrieved successfully',
+        'count'   => $assignments->count(),
+        'data'    => $assignments,
+    ], 200);
+}
+
+public function uploadFabricationDetails(Request $request)
+{
+    // 1. Initial Validation
+    $validator = Validator::make($request->all(), [
+        'lead_id'       => 'required|exists:leads,id',
+        'fabricator_id' => 'required|exists:users,id',
+        'rate_per_sqft' => 'required|numeric|min:0',
+        'pdf_file'      => 'required|file|mimes:pdf|max:10240', 
+    ]);
+
+    if ($validator->fails()) {
+        // This will now catch the "failed to upload" error early
+        return response()->json([
+            'status'  => false,
+            'message' => 'Validation Error',
+            'reason'  => $validator->errors()->first()
+        ], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        $file = $request->file('pdf_file');
+
+        // Check for PHP system errors during upload
+        if (!$file->isValid()) {
+            throw new \Exception("System Upload Error: " . $file->getErrorMessage());
+        }
+
+        $fileName = 'fab_' . $request->lead_id . '_' . time() . '.' . $file->getClientOriginalExtension();
+        
+        // Store the file and verify success
+        $path = $file->storeAs('fabrication_docs', $fileName, 'public');
+
+        if (!$path) {
+            throw new \Exception("Failed to write file to disk. Check storage folder permissions.");
+        }
+
+        // Update Record
+        $fabRequest = \App\Models\FabricatorRequest::where('lead_id', $request->lead_id)
+            ->where('fabricator_id', $request->fabricator_id)
+            ->firstOrFail();
+
+        $fabRequest->update([
+            'fabrication_pdf' => $path,
+            'rate_per_sqft'   => $request->rate_per_sqft,
+            'status'          => '1'
+        ]);
+
+        // Update Lead Stage to 4
+        $lead = \App\Models\Lead::find($request->lead_id);
+        $lead->update(['lead_stage' => 4]);
+
+        \App\Helpers\LeadHelper::logStatus($lead, $lead->building_status, 4);
+
+        DB::commit();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Quotation uploaded successfully',
+            'pdf_url' => asset('storage/' . $path)
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'status'  => false,
+            'message' => 'Upload Failed',
+            'reason'  => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+public function updateLeadFinalStatus(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'lead_id' => 'required|exists:leads,id',
+        'is_won'  => 'required|in:0,1', // 0 = Won, 1 = Lost
+        
+        // Required for Won (is_won = 0)
+        'won_date'                   => 'required_if:is_won,0|date',
+        'expected_installation_date' => 'required_if:is_won,0|date',
+        'advance_received'           => 'required_if:is_won,0|numeric',
+        'final_quotation_pdf'        => 'nullable|mimes:pdf|max:5120',
+        
+        // Required for Lost (is_won = 1)
+        'lost_type'  => 'required_if:is_won,1|string',
+        'competitor' => 'nullable|string',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+        $lead = Lead::findOrFail($request->lead_id);
+
+        if ($request->is_won == 0) {
+            // --- HANDLE WON (is_won = 0) ---
+            $pdfPath = $lead->final_quotation_pdf;
+            if ($request->hasFile('final_quotation_pdf')) {
+                $pdfPath = $request->file('final_quotation_pdf')->store('final_quotes', 'public');
+            }
+
+            $lead->update([
+                'lead_stage'                 => 6, // Stage: Won
+                'won_date'                   => $request->won_date,
+                'expected_installation_date' => $request->expected_installation_date,
+                'advance_received'           => $request->advance_received,
+                'final_quotation_pdf'        => $pdfPath,
+                'status'                     => 'Won'
+            ]);
+        } else {
+            // --- HANDLE LOST (is_won = 1) ---
+            $lead->update([
+                'lead_stage' => 99, // Stage: Lost
+                'lost_type'  => $request->lost_type,
+                'competitor' => $request->competitor,
+                'status'     => 'Lost'
+            ]);
+        }
+
+        // Log history using your helper
+        LeadHelper::logStatus($lead, $lead->building_status, $lead->lead_stage);
+
+        DB::commit();
+        return response()->json([
+            'status'  => true, 
+            'message' => ($request->is_won == 0) ? 'Lead marked as Won' : 'Lead marked as Lost',
+            'data'    => $lead
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['status' => false, 'message' => $e->getMessage()], 500);
+    }
+}
+
+
+public function completeSiteHandover(Request $request)
+{
+    // 1. Validate that at least one photo is provided
+    $validator = Validator::make($request->all(), [
+        'lead_id'           => 'required|exists:leads,id',
+        'installed_date'    => 'required|date',
+        'handovered_date'   => 'required|date',
+        'google_review'     => 'nullable|string',
+        // 'final_site_photos' is now required and must be an array of images
+        'final_site_photos' => 'required|array|min:1',
+        'final_site_photos.*' => 'image|mimes:jpeg,png,jpg|max:5120', 
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => false, 
+            'message' => $validator->errors()->first()
+        ], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        $lead = Lead::findOrFail($request->lead_id);
+
+        // 2. Process and Store Multiple Photos
+        $uploadedPhotos = [];
+        if ($request->hasFile('final_site_photos')) {
+            foreach ($request->file('final_site_photos') as $photo) {
+                // Store file and get path
+                $path = $photo->store('handover_photos', 'public');
+                
+                if (!$path) {
+                    throw new \Exception("Failed to upload one or more images. Operation aborted.");
+                }
+
+                // Create record in your new LeadHandoverPhoto table
+                \App\Models\LeadHandoverPhoto::create([
+                    'lead_id'    => $lead->id,
+                    'photo_path' => $path
+                ]);
+                
+                $uploadedPhotos[] = asset('storage/' . $path);
+            }
+        }
+
+        // 3. Update the main Lead record only if images were saved
+        $lead->update([
+            'lead_stage'       => 7, // Stage: Site Handovered
+            'installed_date'   => $request->installed_date,
+            'handovered_date'  => $request->handovered_date,
+            'google_review'    => $request->google_review,
+            'status'           => '0'
+        ]);
+
+        // 4. Log the stage change
+        \App\Helpers\LeadHelper::logStatus($lead, $lead->building_status, 7);
+
+        DB::commit();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Site Handover completed successfully with ' . count($uploadedPhotos) . ' photos.',
+            'photos' => $uploadedPhotos
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'status' => false,
+            'message' => 'Handover failed: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+
+public function storeOrConvertToNewLead(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'user_id'          => 'required|exists:users,id',
+        'lead_id'          => 'nullable|exists:leads,id',
+        'name'             => 'required|string|max:255',
+        'phone_number'     => 'required|string|max:20',
+        'customer_type'    => 'required|string|max:50',
+        'city'             => 'required|string|max:255',
+        'total_required_area_sqft' => 'required|numeric|min:1',
+        'building_status'  => 'required|string|max:255',
+        'type_of_building' => 'required|string|max:255',
+        'image'            => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => false,
+            'message' => $validator->errors()->first()
+        ], 422);
+    }
+
+    if ($request->lead_id) {
+
+        // Convert existing Site Identification
+        $lead = Lead::find($request->lead_id);
+
+        if ((int)$lead->lead_stage !== 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Only Site Identification leads can be converted'
+            ], 400);
+        }
+
+        $lead->update([
+            'name'                     => $request->name,
+            'phone_number'             => $request->phone_number,
+            'customer_type'            => $request->customer_type,
+            'city'                     => $request->city,
+            'total_required_area_sqft' => $request->total_required_area_sqft,
+            'building_status'          => $request->building_status,
+            'type_of_building'         => $request->type_of_building,
+            'lead_stage'               => 1,
+        ]);
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('lead_images', 'public');
+            \App\Models\LeadImage::create([
+                'lead_id'    => $lead->id,
+                'lead_stage' => '1',
+                'img_path'   => $imagePath,
+                'action'     => '0'
+            ]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Lead converted to New Lead successfully',
+            'data' => $lead
+        ], 200);
+    }
+
+    // Create new lead directly
+    $lead = Lead::create([
+        'user_id'          => $request->user_id,
+        'name'             => $request->name,
+        'phone_number'     => $request->phone_number,
+        'customer_type'    => $request->customer_type,
+        'city'             => $request->city,
+        'total_required_area_sqft' => $request->total_required_area_sqft,
+        'building_status'  => $request->building_status,
+        'type_of_building' => $request->type_of_building,
+        'lead_stage'       => 1,
+        'lead_source'      => 'OWN',
+        'status'           => 0,
+        'created_by'       => $request->user_id,
+    ]);
+
+    if ($request->hasFile('image')) {
+        $imagePath = $request->file('image')->store('lead_images', 'public');
+        \App\Models\LeadImage::create([
+            'lead_id'    => $lead->id,
+            'lead_stage' => '1',
+            'img_path'   => $imagePath,
+            'action'     => '0'
+        ]);
+    }
+
+    return response()->json([
+        'status' => true,
+        'message' => 'New Lead created successfully',
+        'data' => $lead
+    ], 201);
+}
+
+public function addFollowUp(Request $request, $id)
+{
+    $validator = Validator::make($request->all(), [
+        'follow_up_date'  => 'required|date|after_or_equal:today',
+        'building_status' => 'nullable|string|max:255',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => false,
+            'message' => $validator->errors()->first()
+        ], 422);
+    }
+
+    $lead = Lead::find($id);
+
+    if (!$lead) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Lead not found'
+        ], 404);
+    }
+
+    $oldStage = $lead->building_status;
+    $oldStatus = $lead->lead_stage;
+
+    $lead->update([
+        'follow_up_date'  => $request->follow_up_date,
+        'building_status' => $request->building_status ?? $lead->building_status,
+        'lead_stage'      => 2,
+    ]);
+
+    LeadHelper::logStatus(
+        $lead,
+        $lead->building_status,
+        2
+    );
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Follow-up added successfully',
+        'data' => $lead
+    ], 200);
+}
+
+
+}

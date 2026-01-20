@@ -1,0 +1,266 @@
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-bg-dark: rgba(15, 23, 42, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.3);
+    --glow-green: 0 0 15px rgba(76, 175, 80, 0.4);
+    --primary-color: #1e73be;
+    --secondary-color: #4caf50;
+    --font-family-sans: 'Inter', sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+    font-family: var(--font-family-sans);
+    color: #1e293b;
+    min-height: 100vh;
+}
+
+[data-bs-theme="dark"] body {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #f8fafc;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+[data-bs-theme="dark"] .glass-panel {
+    background: var(--glass-bg-dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    transition: all 0.3s ease;
+    border-radius: 2rem;
+    /* Matches Tailwind rounded-[2rem] */
+}
+
+[data-bs-theme="dark"] .glass-card {
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card:hover {
+    border-color: rgba(30, 115, 190, 0.4);
+    box-shadow: 0 10px 25px -5px rgba(30, 115, 190, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Sidebar Specifics */
+.sidebar {
+    width: 280px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1030;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    color: #64748b;
+    /* slate-500 */
+    text-decoration: none;
+    transition: all 0.2s;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+[data-bs-theme="dark"] .sidebar-link {
+    color: #94a3b8;
+}
+
+.sidebar-link:hover {
+    background: rgba(255, 255, 255, 0.4);
+    color: var(--primary-color);
+}
+
+[data-bs-theme="dark"] .sidebar-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-link.active {
+    background: rgba(76, 175, 80, 0.1);
+    border-right: 3px solid #4caf50;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+[data-bs-theme="dark"] .sidebar-link.active {
+    color: #fff;
+}
+
+/* Helpers */
+.text-brand-blue {
+    color: var(--primary-color) !important;
+}
+
+.text-brand-green {
+    color: var(--secondary-color) !important;
+}
+
+.bg-brand-blue {
+    background-color: var(--primary-color) !important;
+}
+
+.bg-brand-green {
+    background-color: var(--secondary-color) !important;
+}
+
+.glow-indicator {
+    box-shadow: var(--glow-green);
+}
+
+.h-full {
+    height: 100%;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+[data-bs-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Table overrides to match design */
+.table>:not(caption)>*>* {
+    background-color: transparent;
+    border-bottom-width: 1px;
+    box-shadow: inset 0 0 0 9999px transparent;
+}
+
+.avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: white;
+}
+
+/* Main Layout */
+.main-content {
+    margin-left: 280px;
+    /* Sidebar width */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+@media(max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                Glass Modal                                 */
+/* -------------------------------------------------------------------------- */
+
+.modal-glass .modal-content {
+    background: rgba(255, 255, 255, 0.85);
+    /* Slightly more opaque for readability */
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border-radius: 1.5rem;
+}
+
+[data-bs-theme="dark"] .modal-glass .modal-content {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.modal-glass .modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-bs-theme="dark"] .modal-glass .modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modal-glass .modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-bs-theme="dark"] .modal-glass .modal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Smooth Transitions - Fade Up Effect */
+/* Bootstrap handles the fade opacity, we add the slight upward movement */
+
+.modal.fade .modal-dialog {
+    transform: translate(0, 20px) scale(0.98);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal.show .modal-dialog {
+    transform: none;
+}
+
+/* Remove default backdrop opacity transition delay for snappier feel */
+.modal-backdrop.fade {
+    transition: opacity 0.3s linear;
+}
+
+/* Custom form inputs inside modal for consistency */
+.modal-glass .form-control,
+.modal-glass .form-select {
+    background-color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
+}
+
+[data-bs-theme="dark"] .modal-glass .form-control,
+[data-bs-theme="dark"] .modal-glass .form-select {
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.modal-glass .form-control:focus,
+.modal-glass .form-select:focus {
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 0 4px rgba(30, 115, 190, 0.15);
+    border-color: var(--primary-color);
+}
+
+[data-bs-theme="dark"] .modal-glass .form-control:focus,
+[data-bs-theme="dark"] .modal-glass .form-select:focus {
+    background-color: rgba(0, 0, 0, 0.4);
+}

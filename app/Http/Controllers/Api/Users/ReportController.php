@@ -49,60 +49,62 @@ class ReportController extends Controller
         $lastLat = $attendance->in_lat;
         $lastLong = $attendance->in_long;
 
-        foreach ($visits as $visit) {
-            // Distance Calculation (From last point to current site IN)
-            $distanceToSite = $this->haversine($lastLat, $lastLong, $visit->inlat, $visit->inlong);
-            $totalTravelKm += $distanceToSite;
+     foreach ($visits as $visit) {
+    // Distance Calculation
+    $distanceToSite = $this->haversine($lastLat, $lastLong, $visit->inlat, $visit->inlong);
+    $totalTravelKm += $distanceToSite;
 
-            // Food Allowance Calculation
-            $allowance = DB::table('station_allowance_masters')
-                ->where('station_type', $visit->food_allowance)
-                ->where('action', 0)
-                ->value('amount') ?? 0;
-            $totalFoodAllowance += $allowance;
+    // Food Allowance Calculation
+    $allowance = DB::table('station_allowance_masters')
+        ->where('station_type', $visit->food_allowance)
+        ->where('action', 0)
+        ->value('amount') ?? 0;
+    $totalFoodAllowance += $allowance;
 
-            // Logic for Dynamic Site Name based on type
-            $displayId = null;
-            $displayName = "Unknown";
-            $typeName = "Unknown";
+    // Initialize all as null
+    $displayId = null;
+    $site_name = null;
+    $account_name = null;
+    $fabricator_name = null;
+    $typeName = "Unknown";
 
-            if ($visit->visit_type == 1) { // Accounts
-                $displayId = $visit->account_id;
-                $displayName = $visit->account_name;
-                $typeName = "accounts";
-            } elseif ($visit->visit_type == 2) { // Leads
-                $displayId = $visit->lead_id;
-                $displayName = $visit->lead_site_name;
-                $typeName = "leads";
-            } elseif ($visit->visit_type == 3) { // Fabricators
-                $displayId = $visit->fabricator_id;
-                $displayName = $visit->fabricator_shop_name;
-                $typeName = "fabricators";
-            }
+    // Assign value ONLY to the relevant field based on type
+    if ($visit->visit_type == 1) { // Accounts
+        $displayId = $visit->account_id;
+        $account_name = $visit->account_name;
+        $typeName = "accounts";
+    } elseif ($visit->visit_type == 2) { // Leads
+        $displayId = $visit->lead_id;
+        $site_name = $visit->lead_site_name;
+        $typeName = "leads";
+    } elseif ($visit->visit_type == 3) { // Fabricators
+        $displayId = $visit->fabricator_id;
+        $fabricator_name = $visit->fabricator_shop_name;
+        $typeName = "fabricators";
+    }
 
-            $visitData = [
-                "id" => (string)$displayId,
-                "site_name" => $displayName ?? "N/A",
-                "account_name" => $displayName ?? "N/A",
-                "fabricator_name" => $displayName ?? "N/A",
-                "visit_type_name" => $typeName,
-                "intime" => $visit->intime_time,
-                "outtime" => $visit->out_time,
-                "remarks" => $visit->remarks,
-                "work_type" => $visit->work_type,
-                "travel_km_to_site" => round($distanceToSite, 2)
-            ];
+    $visitData = [
+        "id"                => (string)$displayId,
+        "site_name"         => $site_name,       // Will be null unless type is Leads
+        "account_name"      => $account_name,    // Will be null unless type is Accounts
+        "fabricator_name"   => $fabricator_name, // Will be null unless type is Fabricators
+        "visit_type_name"   => $typeName,
+        "intime"            => $visit->intime_time,
+        "outtime"           => $visit->out_time,
+        "remarks"           => $visit->remarks,
+        "work_type"         => $visit->work_type,
+        "travel_km_to_site" => round($distanceToSite, 2)
+    ];
 
-            if ($visit->type === 'planned') {
-                $planned[] = $visitData;
-            } else {
-                $unplanned[] = $visitData;
-            }
+    if ($visit->type === 'planned') {
+        $planned[] = $visitData;
+    } else {
+        $unplanned[] = $visitData;
+    }
 
-            // Update last coordinates to this visit's exit point
-            $lastLat = $visit->outlat ?? $visit->inlat;
-            $lastLong = $visit->outlong ?? $visit->inlong;
-        }
+    $lastLat = $visit->outlat ?? $visit->inlat;
+    $lastLong = $visit->outlong ?? $visit->inlong;
+}
 
         // Final Return Leg
         if ($attendance->status == '1' && $attendance->out_lat) {

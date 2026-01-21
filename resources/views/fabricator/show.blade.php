@@ -23,14 +23,7 @@
                 </div>
             </div>
 
-            <div class="hidden md:block">
-                <span
-                    class="inline-flex items-center px-4 py-2 rounded-full text-xs font-bold tracking-widest
-        {{ $fabricator->is_existing == 1 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700' }}">
 
-                    {{ $fabricator->is_existing == 1 ? '● EXISTING' : '● NEW' }}
-                </span>
-            </div>
 
         </div>
 
@@ -61,7 +54,7 @@
                             <div class="space-y-1">
                                 <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight">{{ $label }}
                                 </p>
-                                <p class="text-sm font-semibold text-slate-700 break-words">{{ $value ?? '—' }}</p>
+                                <p class="text-sm font-semibold text-slate-700 break-words">{{ $value ?? '-' }}</p>
                             </div>
                         @endforeach
                     </div>
@@ -87,25 +80,25 @@
                             <div class="space-y-1">
                                 <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight">{{ $label }}
                                 </p>
-                                <p class="text-sm font-semibold text-slate-700">{{ $value ?? '—' }}</p>
+                                <p class="text-sm font-semibold text-slate-700">{{ $value ?? '-' }}</p>
                             </div>
                         @endforeach
 
                         <div class="md:col-span-3 space-y-1 pt-4 border-t border-slate-50">
                             <p class="text-[11px] font-bold text-slate-400 uppercase">Primary Address</p>
                             <p class="text-sm font-semibold text-slate-700 leading-relaxed">
-                                {{ $fabricator->address ?? '—' }}</p>
+                                {{ $fabricator->address ?? '-' }}</p>
                         </div>
 
                         <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
                             <div class="space-y-1">
                                 <p class="text-[11px] font-bold text-slate-400 uppercase">Shipping Address</p>
-                                <p class="text-sm font-semibold text-slate-700">{{ $fabricator->shipping_address ?? '—' }}
+                                <p class="text-sm font-semibold text-slate-700">{{ $fabricator->shipping_address ?? '-' }}
                                 </p>
                             </div>
                             <div class="space-y-1">
                                 <p class="text-[11px] font-bold text-slate-400 uppercase">Billing Address</p>
-                                <p class="text-sm font-semibold text-slate-700">{{ $fabricator->billing_address ?? '—' }}
+                                <p class="text-sm font-semibold text-slate-700">{{ $fabricator->billing_address ?? '-' }}
                                 </p>
                             </div>
                         </div>
@@ -121,113 +114,19 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-y-8 gap-x-4">
                         <div class="space-y-1">
                             <p class="text-[11px] font-bold text-slate-400 uppercase">Bank Name</p>
-                            <p class="text-sm font-semibold text-slate-700">{{ $fabricator->bank_name ?? '—' }}</p>
+                            <p class="text-sm font-semibold text-slate-700">{{ $fabricator->bank_name ?? '-' }}</p>
                         </div>
                         <div class="space-y-1">
                             <p class="text-[11px] font-bold text-slate-400 uppercase">IFSC Code</p>
-                            <p class="text-sm font-mono font-bold text-blue-600">{{ $fabricator->ifsc_code ?? '—' }}</p>
+                            <p class="text-sm font-mono font-bold text-blue-600">{{ $fabricator->ifsc_code ?? '-' }}</p>
                         </div>
                         <div class="space-y-1">
                             <p class="text-[11px] font-bold text-slate-400 uppercase">Account Number</p>
-                            <p class="text-sm font-semibold text-slate-700">{{ $fabricator->account_number ?? '—' }}</p>
+                            <p class="text-sm font-semibold text-slate-700">{{ $fabricator->account_number ?? '-' }}</p>
                         </div>
                     </div>
                 </div>
-                <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-base font-bold text-slate-800 uppercase tracking-wider">
-                            Fabricator Requests
-                        </h3>
 
-                        <!-- FILTER -->
-                        <div class="flex gap-2">
-                            <button class="filter-btn px-3 py-1 rounded-lg text-xs font-bold bg-slate-100"
-                                data-status="all">All</button>
-
-                            <button class="filter-btn px-3 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-700"
-                                data-status="0">Pending</button>
-
-                            <button
-                                class="filter-btn px-3 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700"
-                                data-status="1">Completed</button>
-                        </div>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="border-b text-left">
-                                    <th class="py-3">Lead</th>
-                                    <th>Approx Sq.ft</th>
-                                    <th>Status</th>
-                                    <th>Rate</th>
-                                    <th>PDF</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
-
-                            <tbody id="requestTable">
-                                @forelse($fabricator->requests as $req)
-                                    <tr class="border-b request-row" data-status="{{ $req->status }}">
-
-                                        <td class="py-3 font-semibold">
-                                            <a href="{{ url('leads/' . $req->lead_id) }}"
-                                                class="text-blue-600 hover:underline hover:text-blue-800">
-
-                                                {{ $req->lead->name ?? '—' }}
-                                            </a>
-                                        </td>
-
-                                        {{-- <td class="py-3">
-                                            <p class="font-semibold text-slate-800">
-                                                {{ $req->lead->name ?? '—' }}
-                                            </p>
-                                            <p class="text-xs text-slate-400">
-                                                {{ $req->lead->phone_number ?? '' }}
-                                            </p>
-                                        </td> --}}
-
-                                        <td>{{ $req->approx_sqft }}</td>
-
-                                        <td>
-                                            <span
-                                                class="px-3 py-1 rounded-full text-xs font-bold
-                                                    {{ $req->status == 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
-
-                                                {{ $req->status == 0 ? 'Pending' : 'Completed' }}
-                                            </span>
-                                        </td>
-
-                                        <td>
-                                            ₹ {{ $req->rate_per_sqft ?? '-' }}
-                                        </td>
-
-                                        <td>
-                                            @if ($req->fabrication_pdf)
-                                                <a href="{{ asset('storage/' . $req->fabrication_pdf) }}" target="_blank"
-                                                    class="text-red-500 font-bold">
-                                                    PDF
-                                                </a>
-                                            @else
-                                                —
-                                            @endif
-                                        </td>
-
-                                        <td class="text-slate-500">
-                                            {{ $req->created_at->format('d M Y') }}
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="text-center py-6 text-slate-400 text-sm">
-                                            No requests found
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
             </div>
 
@@ -259,7 +158,7 @@
                             <div class="flex justify-between items-start border-b border-slate-50 pb-3 last:border-0">
                                 <p class="text-[11px] font-bold text-slate-400 uppercase leading-relaxed">
                                     {{ $label }}</p>
-                                <p class="text-xs font-bold text-slate-700 text-right">{{ $value ?? '—' }}</p>
+                                <p class="text-xs font-bold text-slate-700 text-right">{{ $value ?? '-' }}</p>
                             </div>
                         @endforeach
                     </div>
@@ -291,30 +190,4 @@
             </div>
         </div>
     </div>
-    <script>
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-
-                let status = this.dataset.status;
-
-                document.querySelectorAll('.request-row')
-                    .forEach(row => {
-
-                        if (status === 'all') {
-                            row.classList.remove('hidden');
-                        } else {
-                            row.dataset.status === status ?
-                                row.classList.remove('hidden') :
-                                row.classList.add('hidden');
-                        }
-                    });
-
-                // active style
-                document.querySelectorAll('.filter-btn')
-                    .forEach(b => b.classList.remove('ring', 'ring-blue-400'));
-
-                this.classList.add('ring', 'ring-blue-400');
-            });
-        });
-    </script>
 @endsection

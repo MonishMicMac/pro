@@ -67,6 +67,27 @@
             </div>
 
             <div>
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Zone Manager</label>
+                <select id="filter_zsm_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                    <option value="">All ZSMs</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Manager</label>
+                <select id="filter_manager_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                    <option value="">All Managers</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">BDO / Assigned To</label>
+                <select id="filter_bdo_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                    <option value="">All BDOs</option>
+                </select>
+            </div>
+
+            <div>
                 <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">State</label>
                 <select id="filter_state_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
                     <option value="">All States</option>
@@ -87,15 +108,6 @@
                 </select>
             </div>
 
-            <div>
-                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Assigned To</label>
-                <select id="filter_user_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
-                    <option value="">All Users</option>
-                    @foreach($users as $user)
-                        <option value="{{ $user->id }}">{{ $user->name }}</option>
-                    @endforeach
-                </select>
-            </div>
 
             <div>
                 <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">From Date</label>
@@ -106,7 +118,7 @@
                 <input type="date" id="filter_to_date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
             </div>
 
-            <div class="flex items-end gap-2 lg:col-span-2">
+            <div class="flex items-end gap-2 lg:col-span-1">
                 <button id="btn_filter" class="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-[18px]">filter_list</span> Filter
                 </button>
@@ -128,6 +140,7 @@
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">City</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Assigned To</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Status</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Priority</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Created Date</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Action</th>
                     </tr>
@@ -162,17 +175,40 @@
 
         // --- 2. Chained Dropdown Logic ---
 
-        // Load States
-        function getStates(zoneId, callback) {
+        // Load States and Users (Combined)
+        function getZoneData(zoneId, callback) {
             if (!zoneId) {
                 clearDropdown('#filter_state_id', 'States');
+                clearDropdown('#filter_zsm_id', 'ZSMs');
+                clearDropdown('#filter_manager_id', 'Managers');
+                clearDropdown('#filter_bdo_id', 'BDOs');
                 return;
             }
             $.get("{{ route('get.location.data') }}", { type: 'zone', id: zoneId }, function(data) {
+                // Populate States
                 clearDropdown('#filter_state_id', 'States');
-                $.each(data, function(i, item) {
+                $.each(data.states, function(i, item) {
                     $('#filter_state_id').append(`<option value="${item.id}">${item.name}</option>`);
                 });
+                
+                // Populate ZSMs
+                clearDropdown('#filter_zsm_id', 'ZSMs');
+                $.each(data.zsms, function(i, item) {
+                    $('#filter_zsm_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+
+                // Populate BDMs
+                clearDropdown('#filter_manager_id', 'Managers');
+                $.each(data.bdms, function(i, item) {
+                    $('#filter_manager_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+
+                // Populate BDOs
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                $.each(data.bdos, function(i, item) {
+                    $('#filter_bdo_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+                
                 if(callback) callback();
             });
         }
@@ -207,11 +243,54 @@
             });
         }
 
+        // Load Managers (BDM)
+        function getManagers(zsmId, callback) {
+            if (!zsmId) {
+                clearDropdown('#filter_manager_id', 'Managers');
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                return;
+            }
+            $.get("{{ route('get.location.data') }}", { type: 'bdm', id: zsmId }, function(data) {
+                clearDropdown('#filter_manager_id', 'Managers');
+                $.each(data, function(i, item) {
+                    $('#filter_manager_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+                if(callback) callback();
+            });
+        }
+
+        // Load BDOs
+        function getBdos(bdmId, callback) {
+            if (!bdmId) {
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                return;
+            }
+            $.get("{{ route('get.location.data') }}", { type: 'bdo', id: bdmId }, function(data) {
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                $.each(data, function(i, item) {
+                    $('#filter_bdo_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+                if(callback) callback();
+            });
+        }
+
+        // Load ZSMs
+        // Removed as it is now integrated into getZoneData
+
         // --- 3. Event Listeners for Manual Changes ---
         $('#filter_zone_id').on('change', function() { 
-            getStates($(this).val()); 
+            const zoneId = $(this).val();
+            getZoneData(zoneId); 
             clearDropdown('#filter_district_id', 'Districts');
             clearDropdown('#filter_city_id', 'Cities');
+        });
+
+        $('#filter_zsm_id').on('change', function() {
+            getManagers($(this).val());
+        });
+
+        $('#filter_manager_id').on('change', function() {
+            getBdos($(this).val());
         });
 
         $('#filter_state_id').on('change', function() { 
@@ -226,7 +305,7 @@
         // --- 4. Initialization Logic (Role Based) ---
         if (authGeo.zone) {
             $('#filter_zone_id').val(authGeo.zone).prop('disabled', true);
-            getStates(authGeo.zone, function() {
+            getZoneData(authGeo.zone, function() {
                 if (authGeo.state) {
                     $('#filter_state_id').val(authGeo.state).prop('disabled', true);
                     getDistricts(authGeo.state, function() {
@@ -247,11 +326,13 @@
                 url: "{{ route('leads.data') }}",
                 data: function (d) {
                     d.lead_stage = $('#filter_lead_stage').val();
-                    d.user_id = $('#filter_user_id').val();
                     d.from_date = $('#filter_from_date').val();
                     d.to_date = $('#filter_to_date').val();
                     // Send location values even if disabled
                     d.zone_id = $('#filter_zone_id').val();
+                    d.zsm_id = $('#filter_zsm_id').val();
+                    d.manager_id = $('#filter_manager_id').val();
+                    d.bdo_id = $('#filter_bdo_id').val();
                     d.state_id = $('#filter_state_id').val();
                     d.district_id = $('#filter_district_id').val();
                     d.city_id = $('#filter_city_id').val();
@@ -270,6 +351,7 @@
                 { data: 'city', name: 'city' },
                 { data: 'assigned_to', name: 'assignedUser.name' },
                 { data: 'lead_stage', name: 'lead_stage', className: 'text-center' },
+                { data: 'priority', name: 'priority', className: 'text-center' },
                 { data: 'created_at', name: 'created_at' },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
             ],
@@ -294,6 +376,9 @@
                 clearDropdown('#filter_state_id', 'States');
                 clearDropdown('#filter_district_id', 'Districts');
                 clearDropdown('#filter_city_id', 'Cities');
+                clearDropdown('#filter_zsm_id', 'ZSMs');
+                clearDropdown('#filter_manager_id', 'Managers');
+                clearDropdown('#filter_bdo_id', 'BDOs');
             }
             table.draw();
         });

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Users\AttendanceController;
 use App\Http\Controllers\Api\Fabricator\LoginController as FabricatorLoginController;
 use App\Http\Controllers\Api\Users\FabricatorController;
 use App\Http\Controllers\Api\Users\ReportController;
+use App\Http\Controllers\Api\FabricatorProjectionController;
 
 
 
@@ -82,3 +83,9 @@ Route::get('/accounts', [App\Http\Controllers\Api\AccountController::class, 'ind
 Route::post('/accounts', [App\Http\Controllers\Api\AccountController::class, 'store']);
 Route::get('/account-types', [App\Http\Controllers\Api\AccountController::class, 'getTypes']);
 Route::get('/locations', [App\Http\Controllers\Api\AccountController::class, 'getLocations']);
+
+
+Route::prefix('fabricator-projections')->group(function () {
+    Route::get('/', [FabricatorProjectionController::class, 'index']);
+    Route::post('/', [FabricatorProjectionController::class, 'store']);
+});

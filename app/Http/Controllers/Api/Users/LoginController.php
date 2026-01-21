@@ -23,7 +23,7 @@ class LoginController extends Controller
             return response()->json([
                 'status' => "false", 
                 'message' => $validator->errors()->first()
-            ], 422);
+            ], 200);
         }
 
         // 1. Find user by phone and verify they have either the BDM or BDO role
@@ -37,7 +37,7 @@ class LoginController extends Controller
             return response()->json([
                 'status' => "false", 
                 'message' => 'No authorized BDM or BDO account found with this phone number.'
-            ], 404);
+            ], 200);
         }
 
         // 2. Generate random 4-digit OTP
@@ -70,7 +70,7 @@ public function verifyOtp(Request $request)
         return response()->json([
             'status' => "false", 
             'message' => $validator->errors()->first()
-        ], 422);
+        ], 200);
     }
 
     // 1. Verify user and OTP
@@ -83,7 +83,7 @@ public function verifyOtp(Request $request)
         return response()->json([
             'status' => "false", 
             'message' => 'Invalid OTP or Phone number.'
-        ], 401);
+        ], 200);
     }
 
     // 2. Clear OTP

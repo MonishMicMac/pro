@@ -8,6 +8,7 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DigitalMarketing\DigitalMarketingLeadController;
 use App\Http\Controllers\Master\ProductController;
+use App\Http\Controllers\FabricatorDashboardController;
 
 // Public Routes
 Route::get('login', [LoginController::class, 'index'])->name('login');
@@ -179,3 +180,33 @@ Route::middleware(['auth'])->group(function () {
     Route::get('attendance', [App\Http\Controllers\AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('attendance/data', [App\Http\Controllers\AttendanceController::class, 'data'])->name('attendance.data');
 });
+
+//Fabricator WEB
+Route::prefix('fabricator')
+    ->middleware('auth:fabricator')
+    ->group(function () {
+
+        Route::get(
+            '/dashboard',
+            [FabricatorDashboardController::class, 'index']
+        )->name('fabricator.dashboard');
+
+        Route::get(
+            'profile',
+            [FabricatorDashboardController::class, 'show']
+        )->name('fabricator.profile');
+
+        Route::post(
+            'update/{id}',
+            [FabricatorDashboardController::class, 'update']
+        )->name('fabricator.update');
+
+        Route::get(
+            'assignments',
+            [FabricatorDashboardController::class, 'myAssignments']
+        );
+    });
+
+
+Route::get('fabricator-projections/data', [App\Http\Controllers\FabricatorProjectionController::class, 'getData'])->name('fabricator-projections.data');
+Route::resource('fabricator-projections', App\Http\Controllers\FabricatorProjectionController::class);

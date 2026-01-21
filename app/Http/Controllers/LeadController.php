@@ -13,6 +13,7 @@ use App\Models\State;
 use App\Models\District; 
 use App\Models\City;
 use App\Models\Pincode;
+use App\Models\UserMapping;
 
 class LeadController extends Controller
 {
@@ -29,16 +30,13 @@ public function index()
     {
         $authUser = Auth::user();
         
-        // Fetch users and zones
-        $users = User::orderBy('name')->where('action', '0')->get();
-        
         // If user has a zone assigned, only show that zone in the dropdown
         $zones = Zone::orderBy('name')->where('action', '0')
             ->when($authUser->zone_id, function($q) use ($authUser) {
                 return $q->where('id', $authUser->zone_id);
             })->get();
 
-        return view('leads.index', compact('users', 'zones'));
+        return view('leads.index', compact('zones'));
     }
 
     public function getLocationData(Request $request)
@@ -48,11 +46,24 @@ public function index()
 
         switch ($type) {
             case 'zone':
-                return State::where('zone_id', $id)->orderBy('name')->get(['id', 'name']);
+                return response()->json([
+                    'states' => State::where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                    'zsms'   => User::role('ZSM')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                    'bdms'   => User::role('BDM')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                    'bdos'   => User::role('BDO')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                ]);
             case 'state':
                 return District::where('state_id', $id)->orderBy('district_name')->get(['id', 'district_name as name']);
             case 'district':
                 return City::where('district_id', $id)->orderBy('city_name')->get(['id', 'city_name as name']);
+            case 'zsm':
+                return User::role('ZSM')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']);
+            case 'bdm':
+                $bdmIds = UserMapping::where('zsm_id', $id)->distinct()->pluck('bdm_id');
+                return User::whereIn('id', $bdmIds)->orderBy('name')->get(['id', 'name']);
+            case 'bdo':
+                $bdoIds = UserMapping::where('bdm_id', $id)->pluck('bdo_id');
+                return User::whereIn('id', $bdoIds)->orderBy('name')->get(['id', 'name']);
             default:
                 return response()->json([]);
         }
@@ -102,6 +113,22 @@ public function index()
                 $query->where('leads.user_id', $request->user_id);
             }
 
+            // Manager & BDO Filters
+            if ($request->filled('zsm_id')) {
+                $zsmId = $request->zsm_id;
+                $mappingIds = UserMapping::where('zsm_id', $zsmId)->get(['bdm_id', 'bdo_id']);
+                $subIds = $mappingIds->pluck('bdm_id')->merge($mappingIds->pluck('bdo_id'))->unique()->filter()->toArray();
+                $query->whereIn('leads.user_id', array_merge([$zsmId], $subIds));
+            }
+            if ($request->filled('manager_id')) {
+                $managerId = $request->manager_id;
+                $subIds = UserMapping::where('bdm_id', $managerId)->pluck('bdo_id')->unique()->filter()->toArray();
+                $query->whereIn('leads.user_id', array_merge([$managerId], $subIds));
+            }
+            if ($request->filled('bdo_id')) {
+                $query->where('leads.user_id', $request->bdo_id);
+            }
+
             // Date Filters
             if ($request->filled('from_date')) {
                 $query->whereDate('leads.created_at', '>=', $request->from_date);
@@ -131,12 +158,24 @@ public function index()
                     $stage = $stages[$row->lead_stage] ?? ['Unknown', 'bg-slate-100 text-slate-500'];
                     return '<span class="inline-flex px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider '.$stage[1].'">'.$stage[0].'</span>';
                 })
+                ->addColumn('priority', function($row) {
+                    if (in_array($row->lead_stage, [5, 6, 7])) return '';
+                    $styles = [
+                        1 => 'bg-red-100 text-red-600',
+                        2 => 'bg-amber-100 text-amber-600',
+                        3 => 'bg-blue-100 text-blue-600'
+                    ];
+                    $labels = [1 => 'High', 2 => 'Medium', 3 => 'Low'];
+                    $style = $styles[$row->priority] ?? 'bg-slate-100 text-slate-500';
+                    $label = $labels[$row->priority] ?? 'N/A';
+                    return '<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase '.$style.'">'.$label.'</span>';
+                })
                 ->addColumn('action', function ($row) {
                     return '<a href="' . route('leads.show', $row->id) . '" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all">
                                 <span class="material-symbols-outlined text-[18px]">visibility</span>
                             </a>';
                 })
-                ->rawColumns(['action', 'lead_stage'])
+                ->rawColumns(['action', 'lead_stage', 'priority'])
                 ->make(true);
         }
     }

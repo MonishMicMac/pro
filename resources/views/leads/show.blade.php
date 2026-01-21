@@ -68,6 +68,28 @@
                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Required Area</label>
                         <p class="text-sm font-bold text-slate-700">{{ $lead->total_required_area_sqft }} Sq.ft</p>
                     </div>
+                    @if(!in_array((int)$lead->lead_stage, [5, 6, 7]))
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Priority</label>
+                        @php
+                            $priorityStyle = match((int)$lead->priority) {
+                                1 => 'bg-red-100 text-red-600',
+                                2 => 'bg-amber-100 text-amber-600',
+                                3 => 'bg-blue-100 text-blue-600',
+                                default => 'bg-slate-100 text-slate-600',
+                            };
+                            $priorityLabel = match((int)$lead->priority) {
+                                1 => 'High',
+                                2 => 'Medium',
+                                3 => 'Low',
+                                default => 'N/A',
+                            };
+                        @endphp
+                        <span class="inline-flex px-2 py-1 {{ $priorityStyle }} rounded-lg text-[10px] font-black uppercase tracking-wider">
+                            {{ $priorityLabel }}
+                        </span>
+                    </div>
+                    @endif
                 </div>
             </div>
 

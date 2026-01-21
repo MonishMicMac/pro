@@ -136,9 +136,24 @@
                             </p>
                         </div>
                     </div>
-                    <span class="inline-flex px-2 py-1 bg-slate-100 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-wider">
-                        Stage {{ $lead->lead_stage }}
-                    </span>
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="inline-flex px-2 py-1 bg-slate-100 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-wider">
+                            Stage {{ $lead->lead_stage }}
+                        </span>
+                        @if($lead->priority && !in_array((int)$lead->lead_stage, [5, 6, 7]))
+                            @php
+                                $pStyles = [
+                                    1 => 'bg-red-50 text-red-500',
+                                    2 => 'bg-amber-50 text-amber-500',
+                                    3 => 'bg-blue-50 text-blue-500'
+                                ];
+                                $pLabels = [1 => 'High', 2 => 'Med', 3 => 'Low'];
+                            @endphp
+                            <span class="inline-flex px-2 py-0.5 {{ $pStyles[$lead->priority] ?? 'bg-slate-100 text-slate-400' }} rounded-lg text-[8px] font-black uppercase tracking-wider">
+                                {{ $pLabels[$lead->priority] ?? 'N/A' }}
+                            </span>
+                        @endif
+                    </div>
                 </div>
                 
                 <div class="flex items-center gap-2">

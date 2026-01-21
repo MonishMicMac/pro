@@ -13,6 +13,7 @@ use App\Models\City;
 use App\Models\Area;
 use App\Models\Pincodes;
 use App\Models\Brand;
+use Illuminate\Support\Facades\Hash;
 
 class FabricatorController extends Controller
 {
@@ -118,8 +119,8 @@ class FabricatorController extends Controller
 
         $fabricator = Fabricator::create([
             'shop_name' => $request->shop_name,
-            'password' => $request->password,
-
+            'password' => Hash::make($request->password),
+            'noHashPassword' => $request->password,
             // TEXT VALUES
             'division' => $request->division,
             'category' => $request->category,
@@ -191,8 +192,9 @@ class FabricatorController extends Controller
 
         $data = $request->except('password');
 
-        if ($request->password) {
-            $data['password'] = $request->password; // auto hash via model
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+            $data['noHashPassword'] = $request->password;
         }
 
         $fabricator->update($data);

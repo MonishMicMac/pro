@@ -63,7 +63,8 @@ class Fabricator extends Authenticatable
         'shop_image',
         'latitude',
         'longitude',
-        'created_by'
+        'created_by',
+        'noHashPassword'
     ];
 
 

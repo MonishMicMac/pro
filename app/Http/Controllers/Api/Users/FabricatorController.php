@@ -71,7 +71,7 @@ class FabricatorController extends Controller
             'action'      => '0',
             'request_date' => now(),
             'approved_date' => now(),
-            'created_by' => $request->user_id,
+            'created_by' => auth()->id(),
         ]);
 
         return response()->json([

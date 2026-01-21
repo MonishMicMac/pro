@@ -24,17 +24,16 @@ class ReportController extends Controller
             return response()->json(['status' => "false", 'message' => 'No attendance record found.'], 404);
         }
 
-        // 2. Fetch Visits and Join with respective tables for names
+        // 2. Fetch Visits with Joins
         $visits = DB::table('lead_visits as lv')
             ->leftJoin('accounts as acc', 'lv.account_id', '=', 'acc.id')
             ->leftJoin('fabricators as fab', 'lv.fabricator_id', '=', 'fab.id')
-            // Assuming a leads table exists; if not, this will return null for lead names
-            ->leftJoin('leads as ld', 'lv.lead_id', '=', 'ld.id') 
+            ->leftJoin('leads as ld', 'lv.lead_id', '=', 'ld.id') // Assuming 'leads' table exists
             ->select(
                 'lv.*',
                 'acc.name as account_name',
-                'fab.shop_name as fabricator_name',
-                'ld.name as lead_name'
+                'fab.shop_name as fabricator_shop_name',
+                'ld.name as lead_site_name'
             )
             ->where('lv.user_id', $user->id)
             ->whereDate('lv.visit_date', $date)
@@ -46,29 +45,47 @@ class ReportController extends Controller
         $totalTravelKm = 0;
         $totalFoodAllowance = 0;
 
-        // Start Chain for Distance: Punch In Location
+        // Initialize coordinates for distance chaining
         $lastLat = $attendance->in_lat;
         $lastLong = $attendance->in_long;
 
         foreach ($visits as $visit) {
-            // Calculate Distance from last point to this Visit In
+            // Distance Calculation (From last point to current site IN)
             $distanceToSite = $this->haversine($lastLat, $lastLong, $visit->inlat, $visit->inlong);
             $totalTravelKm += $distanceToSite;
 
-            // Fetch Allowance from Master
+            // Food Allowance Calculation
             $allowance = DB::table('station_allowance_masters')
                 ->where('station_type', $visit->food_allowance)
                 ->where('action', 0)
                 ->value('amount') ?? 0;
             $totalFoodAllowance += $allowance;
 
-            // Determine Site Name and ID
-            $siteData = $this->getSiteDetails($visit);
+            // Logic for Dynamic Site Name based on type
+            $displayId = null;
+            $displayName = "Unknown";
+            $typeName = "Unknown";
 
-            $visitItem = [
-                "id" => $siteData['id'],
-                "sitename" => $siteData['name'],
-                "visit_type_name" => $siteData['type_label'],
+            if ($visit->visit_type == 1) { // Accounts
+                $displayId = $visit->account_id;
+                $displayName = $visit->account_name;
+                $typeName = "accounts";
+            } elseif ($visit->visit_type == 2) { // Leads
+                $displayId = $visit->lead_id;
+                $displayName = $visit->lead_site_name;
+                $typeName = "leads";
+            } elseif ($visit->visit_type == 3) { // Fabricators
+                $displayId = $visit->fabricator_id;
+                $displayName = $visit->fabricator_shop_name;
+                $typeName = "fabricators";
+            }
+
+            $visitData = [
+                "id" => (string)$displayId,
+                "site_name" => $displayName ?? "N/A",
+                "account_name" => $displayName ?? "N/A",
+                "fabricator_name" => $displayName ?? "N/A",
+                "visit_type_name" => $typeName,
                 "intime" => $visit->intime_time,
                 "outtime" => $visit->out_time,
                 "remarks" => $visit->remarks,
@@ -77,28 +94,28 @@ class ReportController extends Controller
             ];
 
             if ($visit->type === 'planned') {
-                $planned[] = $visitItem;
+                $planned[] = $visitData;
             } else {
-                $unplanned[] = $visitItem;
+                $unplanned[] = $visitData;
             }
 
-            // Update chain to Visit Out location
+            // Update last coordinates to this visit's exit point
             $lastLat = $visit->outlat ?? $visit->inlat;
             $lastLong = $visit->outlong ?? $visit->inlong;
         }
 
-        // Final Leg distance (Last Visit to Punch Out)
+        // Final Return Leg
         if ($attendance->status == '1' && $attendance->out_lat) {
             $totalTravelKm += $this->haversine($lastLat, $lastLong, $attendance->out_lat, $attendance->out_long);
         }
 
-        // Calculate Odometer Total
-        $totalOdometer = 0;
+        // Odometer Logic
+        $odometerDiff = 0;
         if ($attendance->start_km && $attendance->end_km) {
-            $totalOdometer = (float)$attendance->end_km - (float)$attendance->start_km;
+            $odometerDiff = (float)$attendance->end_km - (float)$attendance->start_km;
         }
 
-        // Calculate Spent Time
+        // Spent Time Calculation
         $spentTime = '00:00:00';
         if ($attendance->punch_out_time) {
             $start = Carbon::parse($attendance->punch_in_time);
@@ -121,26 +138,11 @@ class ReportController extends Controller
                 "total_food_allowance" => number_format($totalFoodAllowance, 2),
                 "odometer_start" => $attendance->start_km,
                 "odometer_end" => $attendance->end_km,
-                "total_odometer" => (string)$totalOdometer,
+                "total_odometer" => (string)$odometerDiff,
                 "planned" => $planned,
                 "unplanned" => $unplanned
             ]
         ], 200);
-    }
-
-    private function getSiteDetails($visit)
-    {
-        // 1-accounts, 2-leads, 3-fabricators
-        switch ($visit->visit_type) {
-            case 1:
-                return ['id' => $visit->account_id, 'name' => $visit->account_name ?? 'N/A', 'type_label' => 'accounts'];
-            case 2:
-                return ['id' => $visit->lead_id, 'name' => $visit->lead_name ?? 'N/A', 'type_label' => 'leads'];
-            case 3:
-                return ['id' => $visit->fabricator_id, 'name' => $visit->fabricator_name ?? 'N/A', 'type_label' => 'fabricators'];
-            default:
-                return ['id' => null, 'name' => 'Unknown', 'type_label' => 'Unknown'];
-        }
     }
 
     private function haversine($lat1, $lon1, $lat2, $lon2)

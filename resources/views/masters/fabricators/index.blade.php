@@ -1151,69 +1151,11 @@ gap-4 text-xs font-bold text-slate-700">
 
                 let id = $('.row-checkbox:checked').first().val();
 
-                $.get("{{ url('masters/fabricators') }}/" + id, function(res) {
-
-                    let html = `
-<!-- STEP 1 -->
-<div class="col-span-3 border-b pb-2 mb-2">
-<h4 class="text-xs font-black text-slate-700">Information</h4>
-</div>
-
-<div><b>Shop</b>: ${res.shop_name}</div>
-<div><b>Mobile</b>: ${res.mobile}</div>
-<div><b>Email</b>: ${res.email ?? '-'}</div>
-
-<div><b>Division</b>: ${res.division}</div>
-<div><b>Category</b>: ${res.category}</div>
-<div><b>Segment</b>: ${res.segment}</div>
-
-<div><b>Sub Segment</b>: ${res.sub_segment}</div>
-
-<!-- STEP 2 -->
-<div class="col-span-3 border-t pt-3 mt-2">
-<h4 class="text-xs font-black text-slate-700">Location</h4>
-</div>
-
-<div><b>State</b>: ${res.state?.name ?? '-'}</div>
-<div><b>District</b>: ${res.district?.district_name ?? '-'}</div>
-<div><b>City</b>: ${res.city?.city_name ?? '-'}</div>
-
-<div><b>Pincode</b>: ${res.pincode?.pincode ?? '-'}</div>
-
-<div class="col-span-3"><b>Address</b>: ${res.address ?? '-'}</div>
-<div><b>Shipping</b>: ${res.shipping_address ?? '-'}</div>
-<div><b>Billing</b>: ${res.billing_address ?? '-'}</div>
-
-<!-- STEP 3 -->
-<div class="col-span-3 border-t pt-3 mt-2">
-<h4 class="text-xs font-black text-slate-700">Bank Details</h4>
-</div>
-
-<div><b>Bank</b>: ${res.bank_name ?? '-'}</div>
-<div><b>IFSC</b>: ${res.ifsc_code ?? '-'}</div>
-<div><b>Account</b>: ${res.account_number ?? '-'}</div>
-
-<!-- STEP 4 -->
-<div class="col-span-3 border-t pt-3 mt-2">
-<h4 class="text-xs font-black text-slate-700">Contact</h4>
-</div>
-
-<div><b>Contact Person</b>: ${res.contact_person ?? '-'}</div>
-<div><b>Sales Person</b>: ${res.sales_person ?? '-'}</div>
-<div><b>Contact Type</b>: ${res.contact_type ?? '-'}</div>
-
-<div><b>GST</b>: ${res.gst ?? '-'}</div>
-<div><b>Credit Terms</b>: ${res.payment_credit_terms ?? '-'}</div>
-<div><b>Credit Limit</b>: ${res.credit_limit ?? '-'}</div>
-
-<div><b>Existing</b>: ${res.is_existing == 1 ? 'NEW' : 'EXISTING'}</div>
-<div><b>Status</b>: ${res.status == 0 ? 'APPROVED' : 'DECLINED'}</div>
-`;
-
-                    $('#viewContent').html(html);
-                    $('#viewModal').removeClass('hidden');
-                });
+                window.location.href =
+                    "{{ route('masters.fabricators.show', ':id') }}"
+                    .replace(':id', id);
             });
+
 
 
             window.closeView = function() {

@@ -87,78 +87,98 @@ class SiteVisitController extends Controller
      */
     public function reportData(Request $request)
     {
-        $fromDate = $request->from_date ?? Carbon::today()->toDateString();
-        $toDate = $request->to_date ?? Carbon::today()->toDateString();
+        $fromDate = $request->from_date;
+        $toDate = $request->to_date;
         $userId = $request->user_id;
         $statusFilter = $request->status; // 'Visited', 'Pending'
+        $typeFilter = $request->type; // 'planned', 'unplanned'
+        $visitTypeFilter = $request->visit_type; // 1, 2, 3
+        $foodAllowanceFilter = $request->food_allowance; // 1, 2
+        $workTypeFilter = $request->work_type; // 'Individual', 'Joint Work'
 
-        // 1. Get Scheduled Leads for the period
-        $scheduledQuery = \App\Models\Lead::with(['assignedUser'])
-            ->whereBetween('follow_up_date', [$fromDate, $toDate]);
-        
-        if ($userId) {
-            $scheduledQuery->where('user_id', $userId);
+        $query = LeadVisit::with(['user', 'lead', 'account', 'fabricator'])
+            ->select('lead_visits.*');
+
+        // Apply Filters
+        if ($fromDate && $toDate) {
+            $query->whereBetween('schedule_date', [$fromDate, $toDate]);
+        } elseif ($fromDate) {
+            $query->whereDate('schedule_date', '>=', $fromDate);
+        } elseif ($toDate) {
+            $query->whereDate('schedule_date', '<=', $toDate);
+        } else {
+            // Default to today if no date range is provided
+            $query->whereDate('schedule_date', Carbon::today()->toDateString());
         }
 
-        $scheduledItems = $scheduledQuery->get()->map(function($lead) {
-            // Find if there was a visit for this lead on its scheduled date
-            $visit = LeadVisit::where('lead_id', $lead->id)
-                ->whereDate('created_at', $lead->follow_up_date)
-                ->first();
-
-            return [
-                'id' => $lead->id,
-                'lead_name' => $lead->name,
-                'user_name' => $lead->assignedUser->name ?? 'N/A',
-                'city' => $lead->city,
-                'date' => $lead->follow_up_date,
-                'type' => 'Scheduled',
-                'status' => $visit ? 'Visited' : 'Pending',
-                'check_in' => $visit ? Carbon::parse($visit->intime_time)->format('h:i A') : '-',
-                'check_out' => ($visit && $visit->out_time) ? Carbon::parse($visit->out_time)->format('h:i A') : '-',
-                'remarks' => $visit->remarks ?? '-',
-                'visit_id' => $visit->id ?? null
-            ];
-        });
-
-        // 2. Get UN-scheduled visits for the period
-        $unscheduledQuery = LeadVisit::with(['lead', 'user'])
-            ->whereBetween(\DB::raw('DATE(created_at)'), [$fromDate, $toDate])
-            ->where(function($q) {
-                $q->whereNull('lead_id') // Should not happen but safe
-                  ->orWhereHas('lead', function($l) {
-                      $l->whereRaw('DATE(leads.follow_up_date) != DATE(lead_visits.created_at)');
-                  });
-            });
-
         if ($userId) {
-            $unscheduledQuery->where('user_id', $userId);
+            $query->where('user_id', $userId);
         }
 
-        $unscheduledItems = $unscheduledQuery->get()->map(function($visit) {
-            return [
-                'id' => $visit->lead->id ?? 0,
-                'lead_name' => $visit->lead->name ?? 'Direct Visit',
-                'user_name' => $visit->user->name ?? 'N/A',
-                'city' => $visit->lead->city ?? '-',
-                'date' => Carbon::parse($visit->created_at)->toDateString(),
-                'type' => 'Unscheduled',
-                'status' => 'Visited',
-                'check_in' => Carbon::parse($visit->intime_time)->format('h:i A'),
-                'check_out' => $visit->out_time ? Carbon::parse($visit->out_time)->format('h:i A') : '-',
-                'remarks' => $visit->remarks ?? '-',
-                'visit_id' => $visit->id
-            ];
-        });
+        if ($typeFilter) {
+            $query->where('type', $typeFilter);
+        }
 
-        $combined = $scheduledItems->concat($unscheduledItems);
+        if ($visitTypeFilter) {
+            $query->where('visit_type', $visitTypeFilter);
+        }
 
-        // Filter by status if requested
+        if ($foodAllowanceFilter) {
+            $query->where('food_allowance', $foodAllowanceFilter);
+        }
+
+        if ($workTypeFilter) {
+            $query->where('work_type', $workTypeFilter);
+        }
+
         if ($statusFilter) {
-            $combined = $combined->where('status', $statusFilter);
+            if ($statusFilter === 'Visited') {
+                $query->whereNotNull('intime_time');
+            } elseif ($statusFilter === 'Pending') {
+                $query->whereNull('intime_time');
+            }
         }
 
-        return DataTables::of($combined)
+        return DataTables::of($query)
+            ->addColumn('date', function ($row) {
+                return $row->schedule_date;
+            })
+            ->addColumn('entity_name', function ($row) {
+                if ($row->visit_type == 1) {
+                    return $row->account->name ?? 'N/A';
+                } elseif ($row->visit_type == 2) {
+                    return $row->lead->site_owner_name ?? 'N/A';
+                } elseif ($row->visit_type == 3) {
+                    return $row->fabricator->name ?? 'N/A';
+                }
+                return 'N/A';
+            })
+            ->editColumn('user_name', function ($row) {
+                return $row->user ? $row->user->name : 'N/A';
+            })
+            ->addColumn('category', function ($row) {
+                $categories = [1 => 'Account', 2 => 'Lead', 3 => 'Fabricator'];
+                return $categories[$row->visit_type] ?? 'N/A';
+            })
+            ->addColumn('type_label', function ($row) {
+                return ucfirst($row->type);
+            })
+            ->addColumn('status_label', function ($row) {
+                return $row->intime_time ? 'Visited' : 'Pending';
+            })
+            ->addColumn('check_in', function ($row) {
+                return $row->intime_time ? Carbon::parse($row->intime_time)->format('h:i A') : '-';
+            })
+            ->addColumn('check_out', function ($row) {
+                return $row->out_time ? Carbon::parse($row->out_time)->format('h:i A') : '-';
+            })
+            ->addColumn('food_label', function ($row) {
+                $labels = [1 => 'Local Station', 2 => 'Out Station'];
+                return $labels[$row->food_allowance] ?? '-';
+            })
+            ->addColumn('image_url', function ($row) {
+                return $row->image ? asset('storage/' . $row->image) : null;
+            })
             ->make(true);
     }
 }

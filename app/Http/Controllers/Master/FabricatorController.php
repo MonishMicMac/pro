@@ -254,7 +254,18 @@ class FabricatorController extends Controller
 
     public function show($id)
     {
-        return Fabricator::with(['state', 'district', 'city', 'pincode', 'brands'])
-            ->findOrFail($id);
+        $fabricator = Fabricator::with([
+            'state',
+            'district',
+            'city',
+            'pincode',
+            'brands',
+            'requests.lead'
+        ])->findOrFail($id);
+
+        return view(
+            'masters.fabricators.show',
+            compact('fabricator')
+        );
     }
 }

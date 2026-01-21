@@ -44,7 +44,7 @@ class Lead extends Model
         'status',
 'follow_up_date','final_quotation_pdf', 'won_date', 'expected_installation_date', 
     'advance_received', 'lost_type', 'competitor', 
-    'installed_date', 'handovered_date','brand_id'
+    'installed_date', 'handovered_date','brand_id','priority'
     ];
 
     protected $casts = [

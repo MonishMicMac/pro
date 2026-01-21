@@ -77,16 +77,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('item-types/bulk-delete', [App\Http\Controllers\Master\ItemTypeController::class, 'bulkDelete'])->name('item-types.bulkDelete');
         Route::resource('item-types', App\Http\Controllers\Master\ItemTypeController::class);
 
-      // Existing bulk delete (this works because you manually named it)
-Route::post('account-types/bulk-delete', [App\Http\Controllers\Master\AccountTypeController::class, 'bulkDelete'])
-    ->name('account_types.bulkDelete');
+        // Existing bulk delete (this works because you manually named it)
+        Route::post('account-types/bulk-delete', [App\Http\Controllers\Master\AccountTypeController::class, 'bulkDelete'])
+            ->name('account_types.bulkDelete');
 
-// FIX: Add ->names('account_types') to the resource
-Route::resource('account-types', App\Http\Controllers\Master\AccountTypeController::class)
-    ->names('account_types');
+        // FIX: Add ->names('account_types') to the resource
+        Route::resource('account-types', App\Http\Controllers\Master\AccountTypeController::class)
+            ->names('account_types');
 
-    
-         // Travel Allowance Master
+
+        // Travel Allowance Master
         Route::post('travel-allowance/bulk-delete', [App\Http\Controllers\Master\TravelAllowanceMasterController::class, 'bulkDelete'])->name('travel-allowance.bulkDelete');
         Route::resource('travel-allowance', App\Http\Controllers\Master\TravelAllowanceMasterController::class);
 
@@ -103,7 +103,11 @@ Route::resource('account-types', App\Http\Controllers\Master\AccountTypeControll
             [App\Http\Controllers\Master\FabricatorController::class, 'bulkStatus']
         )
             ->name('fabricators.bulkStatus');
-        Route::get('fabricators/{id}', [App\Http\Controllers\Master\FabricatorController::class, 'show']);
+        // web.php
+        Route::get(
+            'fabricators/{id}/show',
+            [App\Http\Controllers\Master\FabricatorController::class, 'show']
+        )->name('fabricators.show');
 
 
         Route::post('zones/bulk-delete', [App\Http\Controllers\Master\ZoneController::class, 'bulkDelete'])->name('zones.bulkDelete');
@@ -146,25 +150,23 @@ Route::resource('account-types', App\Http\Controllers\Master\AccountTypeControll
         Route::post('leads/bulk-delete', [DigitalMarketingLeadController::class, 'bulkDelete'])->name('leads.bulkDelete');
         Route::resource('leads', DigitalMarketingLeadController::class);
 
-          Route::get('regional-footprint', [App\Http\Controllers\Marketing\RegionalFootprintController::class, 'index'])->name('regional.footprint');
+        Route::get('regional-footprint', [App\Http\Controllers\Marketing\RegionalFootprintController::class, 'index'])->name('regional.footprint');
         Route::get('regional-footprint-data', [App\Http\Controllers\Marketing\RegionalFootprintController::class, 'getData'])->name('regional.footprint.data');
-
-
     });
 
-      
+
 
     Route::get('marketing/leads/{id}/history', [DigitalMarketingLeadController::class, 'history'])->name('marketing.leads.history');
 
-     Route::get('field-activity', [App\Http\Controllers\LeadController::class, 'fieldActivity'])->name('leads.field-activity');
+    Route::get('field-activity', [App\Http\Controllers\LeadController::class, 'fieldActivity'])->name('leads.field-activity');
 
     // Leads & Visits
     Route::get('site-visits', [App\Http\Controllers\SiteVisitController::class, 'index'])->name('site-visits.index');
     Route::get('site-visits/data', [App\Http\Controllers\SiteVisitController::class, 'data'])->name('site-visits.data');
-  Route::get('site-visit-report', [App\Http\Controllers\SiteVisitController::class, 'report'])->name('site-visits.report');
+    Route::get('site-visit-report', [App\Http\Controllers\SiteVisitController::class, 'report'])->name('site-visits.report');
     Route::get('site-visit-report/data', [App\Http\Controllers\SiteVisitController::class, 'reportData'])->name('site-visits.report.data');
 
-    
+
     Route::get('leads/data', [App\Http\Controllers\LeadController::class, 'data'])->name('leads.data');
     Route::get('get-location-data', [App\Http\Controllers\LeadController::class, 'getLocationData'])->name('get.location.data');
     Route::resource('leads', App\Http\Controllers\LeadController::class);
@@ -174,8 +176,6 @@ Route::resource('account-types', App\Http\Controllers\Master\AccountTypeControll
     Route::resource('expenses', App\Http\Controllers\ExpenseController::class)->only(['index']);
 
 
-  Route::get('attendance', [App\Http\Controllers\AttendanceController::class, 'index'])->name('attendance.index');
+    Route::get('attendance', [App\Http\Controllers\AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('attendance/data', [App\Http\Controllers\AttendanceController::class, 'data'])->name('attendance.data');
-
-
 });

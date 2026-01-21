@@ -28,7 +28,7 @@ class FabricatorController extends Controller
             'longitude'       => 'nullable',
             'shop_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048'
         ]);
-
+        $id = auth()->id();
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
@@ -66,7 +66,7 @@ class FabricatorController extends Controller
             'is_existing' => 0, // NEW
             'status'      => 0, // APPROVED
             'action'      => 0,
-            'created_by' => auth()->id(),
+            'created_by' => $id,
             'request_date' => now(),
             'approved_date' => now()
         ]);
@@ -76,6 +76,7 @@ class FabricatorController extends Controller
             'message' => 'Fabricator created successfully',
             'data' => [
                 'id' => $fabricator->id,
+                'ids' => $id,
                 'shop_name' => $fabricator->shop_name,
                 'shop_image' => $imagePath
                     ? url('storage/' . $imagePath)

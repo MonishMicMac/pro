@@ -573,8 +573,9 @@ public function storeFollowupMeeting(Request $request)
 public function storeMeasurements(Request $request)
 {
     $validator = Validator::make($request->all(), [
-        'lead_id' => 'required|exists:leads,id',
-        'user_id' => 'required|exists:users,id',
+        'lead_id'      => 'required|exists:leads,id',
+        'user_id'      => 'required|exists:users,id',
+        'priority'     => 'required|integer', // <--- Added Validation
         'measurements' => 'required|array|min:1',
         'measurements.*.width_val'   => 'required|numeric',
         'measurements.*.width_unit'  => 'required|in:mm,ft,inch',
@@ -601,9 +602,9 @@ public function storeMeasurements(Request $request)
                 'product'     => $item['product'],
                 'design_code' => $item['design_code'],
                 'area'        => $item['area'],
-                'width_val'   => $item['width_val'],   // Saved to width_val
+                'width_val'   => $item['width_val'],
                 'width_unit'  => $item['width_unit'],
-                'height_val'  => $item['height_val'],  // Saved to height_val
+                'height_val'  => $item['height_val'],
                 'height_unit' => $item['height_unit'],
                 'qty'         => $item['qty'],
                 'color'       => $item['color'],
@@ -612,7 +613,12 @@ public function storeMeasurements(Request $request)
             ]);
         }
 
-        Lead::where('id', $request->lead_id)->update(['lead_stage' => 4]);
+        // Update Lead Stage AND Priority
+        Lead::where('id', $request->lead_id)->update([
+            'lead_stage' => 4,
+            'priority'   => $request->priority // <--- Saving the priority here
+        ]);
+
         DB::commit();
 
         return response()->json(['status' => true, 'message' => 'Success'], 201);
@@ -621,7 +627,6 @@ public function storeMeasurements(Request $request)
         return response()->json(['status' => false, 'message' => $e->getMessage()], 500);
     }
 }
-
     /**
      * Helper to convert various units to Feet
      */
@@ -654,20 +659,24 @@ public function getMeasurementsByLead(Request $request)
         ], 422);
     }
 
-    // 2. Fetch measurements with lead details
+    // 2. Fetch the Lead to get the priority
+    $lead = Lead::find($request->lead_id);
+
+    // 3. Fetch measurements
     $measurements = MeasurementDetail::where('lead_id', $request->lead_id)
         ->orderBy('created_at', 'desc')
         ->get();
 
-    // 3. Optional: Calculate a grand total of Sq.ft for the entire lead
+    // 4. Calculate grand total
     $totalLeadSqft = $measurements->sum('sqft');
 
     return response()->json([
-        'status'   => true,
-        'message'  => 'Measurements retrieved successfully',
-        'count'    => $measurements->count(),
+        'status'          => true,
+        'message'         => 'Measurements retrieved successfully',
+        'count'           => $measurements->count(),
+        'priority'        => $lead->priority, // <--- Added priority here
         'total_lead_sqft' => round($totalLeadSqft, 2),
-        'data'     => $measurements,
+        'data'            => $measurements,
     ], 200);
 }
 

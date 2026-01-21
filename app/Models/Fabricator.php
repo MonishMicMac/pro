@@ -12,6 +12,7 @@ use App\Models\Area;
 use App\Models\Pincodes;
 use App\Models\Brand;
 use \App\Models\User;
+use \App\Models\FabricatorRequest;
 use Laravel\Sanctum\HasApiTokens;
 
 class Fabricator extends Authenticatable
@@ -61,7 +62,8 @@ class Fabricator extends Authenticatable
         'is_existing',
         'shop_image',
         'latitude',
-        'longitude'
+        'longitude',
+        'created_by'
     ];
 
 
@@ -105,5 +107,10 @@ class Fabricator extends Authenticatable
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function requests()
+    {
+        return $this->hasMany(FabricatorRequest::class);
     }
 }

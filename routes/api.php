@@ -54,13 +54,13 @@ Route::prefix('users')->group(function () {
     Route::post('send-otp', [LoginController::class, 'sendOtp']);
     Route::post('verify-otp', [LoginController::class, 'verifyOtp']);
 
-    Route::post('fabricator/create', [FabricatorController::class, 'store']);
 
     // Protected User Routes (Attendance)
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('punch-in', [AttendanceController::class, 'punchIn']);
         Route::post('punch-out', [AttendanceController::class, 'punchOut']);
         Route::get('consolidated-report', [ReportController::class, 'getConsolidatedReport']);
+        Route::post('fabricator/create', [FabricatorController::class, 'store']);
     });
 });
 

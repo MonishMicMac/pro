@@ -47,7 +47,7 @@ class LoginController extends Controller
         $token = $fabricator->createToken(
             'fabricator-token',
             ['*'],
-            Carbon::now()->addMinutes(5)
+            Carbon::now()->addDays(7)
         )->plainTextToken;
         return response()->json([
             'status' => true,
@@ -105,6 +105,17 @@ class LoginController extends Controller
             'status' => true,
             'message' => 'Fabricator updated successfully',
             'data' => $fabricator
+        ], 200);
+    }
+
+    public function logout(Request $request)
+    {
+        // delete current token only
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Logout successful'
         ], 200);
     }
 }

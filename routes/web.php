@@ -86,6 +86,15 @@ Route::resource('account-types', App\Http\Controllers\Master\AccountTypeControll
     ->names('account_types');
 
     
+         // Travel Allowance Master
+        Route::post('travel-allowance/bulk-delete', [App\Http\Controllers\Master\TravelAllowanceMasterController::class, 'bulkDelete'])->name('travel-allowance.bulkDelete');
+        Route::resource('travel-allowance', App\Http\Controllers\Master\TravelAllowanceMasterController::class);
+
+        // Station Allowance Master
+        Route::post('station-allowance/bulk-delete', [App\Http\Controllers\Master\StationAllowanceMasterController::class, 'bulkDelete'])->name('station-allowance.bulkDelete');
+        Route::resource('station-allowance', App\Http\Controllers\Master\StationAllowanceMasterController::class);
+
+
         Route::post('fabricators/bulk-delete', [App\Http\Controllers\Master\FabricatorController::class, 'bulkDelete'])->name('fabricators.bulkDelete');
         Route::get('fabricators-status/{id}', [App\Http\Controllers\Master\FabricatorController::class, 'status'])->name('fabricators.status');
         Route::resource('fabricators', App\Http\Controllers\Master\FabricatorController::class);
@@ -137,17 +146,25 @@ Route::resource('account-types', App\Http\Controllers\Master\AccountTypeControll
         Route::post('leads/bulk-delete', [DigitalMarketingLeadController::class, 'bulkDelete'])->name('leads.bulkDelete');
         Route::resource('leads', DigitalMarketingLeadController::class);
 
-            Route::get('regional-footprint', [App\Http\Controllers\Marketing\RegionalFootprintController::class, 'index'])->name('regional.footprint');
+          Route::get('regional-footprint', [App\Http\Controllers\Marketing\RegionalFootprintController::class, 'index'])->name('regional.footprint');
         Route::get('regional-footprint-data', [App\Http\Controllers\Marketing\RegionalFootprintController::class, 'getData'])->name('regional.footprint.data');
 
-        
+
     });
+
+      
+
     Route::get('marketing/leads/{id}/history', [DigitalMarketingLeadController::class, 'history'])->name('marketing.leads.history');
+
+     Route::get('field-activity', [App\Http\Controllers\LeadController::class, 'fieldActivity'])->name('leads.field-activity');
 
     // Leads & Visits
     Route::get('site-visits', [App\Http\Controllers\SiteVisitController::class, 'index'])->name('site-visits.index');
     Route::get('site-visits/data', [App\Http\Controllers\SiteVisitController::class, 'data'])->name('site-visits.data');
+  Route::get('site-visit-report', [App\Http\Controllers\SiteVisitController::class, 'report'])->name('site-visits.report');
+    Route::get('site-visit-report/data', [App\Http\Controllers\SiteVisitController::class, 'reportData'])->name('site-visits.report.data');
 
+    
     Route::get('leads/data', [App\Http\Controllers\LeadController::class, 'data'])->name('leads.data');
     Route::get('get-location-data', [App\Http\Controllers\LeadController::class, 'getLocationData'])->name('get.location.data');
     Route::resource('leads', App\Http\Controllers\LeadController::class);
@@ -156,6 +173,9 @@ Route::resource('account-types', App\Http\Controllers\Master\AccountTypeControll
     Route::get('expenses/data', [App\Http\Controllers\ExpenseController::class, 'data'])->name('expenses.data');
     Route::resource('expenses', App\Http\Controllers\ExpenseController::class)->only(['index']);
 
+
+  Route::get('attendance', [App\Http\Controllers\AttendanceController::class, 'index'])->name('attendance.index');
+    Route::get('attendance/data', [App\Http\Controllers\AttendanceController::class, 'data'])->name('attendance.data');
 
 
 });

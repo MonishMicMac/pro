@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Models\State;
 use App\Models\District;
 use App\Models\City;
@@ -13,7 +14,7 @@ use App\Models\Brand;
 use \App\Models\User;
 use Laravel\Sanctum\HasApiTokens;
 
-class Fabricator extends Model
+class Fabricator extends Authenticatable
 {
     use HasApiTokens;
 

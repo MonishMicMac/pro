@@ -72,4 +72,93 @@ class SiteVisitController extends Controller
             ->make(true);
         }
     }
+
+    /**
+     * Display the site visit status report.
+     */
+    public function report()
+    {
+        $users = User::orderBy('name')->where('action', '0')->get();
+        return view('site_visits.report', compact('users'));
+    }
+
+    /**
+     * Process site visit report datatables ajax request.
+     */
+    public function reportData(Request $request)
+    {
+        $fromDate = $request->from_date ?? Carbon::today()->toDateString();
+        $toDate = $request->to_date ?? Carbon::today()->toDateString();
+        $userId = $request->user_id;
+        $statusFilter = $request->status; // 'Visited', 'Pending'
+
+        // 1. Get Scheduled Leads for the period
+        $scheduledQuery = \App\Models\Lead::with(['assignedUser'])
+            ->whereBetween('follow_up_date', [$fromDate, $toDate]);
+        
+        if ($userId) {
+            $scheduledQuery->where('user_id', $userId);
+        }
+
+        $scheduledItems = $scheduledQuery->get()->map(function($lead) {
+            // Find if there was a visit for this lead on its scheduled date
+            $visit = LeadVisit::where('lead_id', $lead->id)
+                ->whereDate('created_at', $lead->follow_up_date)
+                ->first();
+
+            return [
+                'id' => $lead->id,
+                'lead_name' => $lead->name,
+                'user_name' => $lead->assignedUser->name ?? 'N/A',
+                'city' => $lead->city,
+                'date' => $lead->follow_up_date,
+                'type' => 'Scheduled',
+                'status' => $visit ? 'Visited' : 'Pending',
+                'check_in' => $visit ? Carbon::parse($visit->intime_time)->format('h:i A') : '-',
+                'check_out' => ($visit && $visit->out_time) ? Carbon::parse($visit->out_time)->format('h:i A') : '-',
+                'remarks' => $visit->remarks ?? '-',
+                'visit_id' => $visit->id ?? null
+            ];
+        });
+
+        // 2. Get UN-scheduled visits for the period
+        $unscheduledQuery = LeadVisit::with(['lead', 'user'])
+            ->whereBetween(\DB::raw('DATE(created_at)'), [$fromDate, $toDate])
+            ->where(function($q) {
+                $q->whereNull('lead_id') // Should not happen but safe
+                  ->orWhereHas('lead', function($l) {
+                      $l->whereRaw('DATE(leads.follow_up_date) != DATE(lead_visits.created_at)');
+                  });
+            });
+
+        if ($userId) {
+            $unscheduledQuery->where('user_id', $userId);
+        }
+
+        $unscheduledItems = $unscheduledQuery->get()->map(function($visit) {
+            return [
+                'id' => $visit->lead->id ?? 0,
+                'lead_name' => $visit->lead->name ?? 'Direct Visit',
+                'user_name' => $visit->user->name ?? 'N/A',
+                'city' => $visit->lead->city ?? '-',
+                'date' => Carbon::parse($visit->created_at)->toDateString(),
+                'type' => 'Unscheduled',
+                'status' => 'Visited',
+                'check_in' => Carbon::parse($visit->intime_time)->format('h:i A'),
+                'check_out' => $visit->out_time ? Carbon::parse($visit->out_time)->format('h:i A') : '-',
+                'remarks' => $visit->remarks ?? '-',
+                'visit_id' => $visit->id
+            ];
+        });
+
+        $combined = $scheduledItems->concat($unscheduledItems);
+
+        // Filter by status if requested
+        if ($statusFilter) {
+            $combined = $combined->where('status', $statusFilter);
+        }
+
+        return DataTables::of($combined)
+            ->make(true);
+    }
 }

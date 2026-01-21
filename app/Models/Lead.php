@@ -17,6 +17,10 @@ class Lead extends Model
         'phone_number',
         'email',
         'city',
+        'site_owner_name',
+        'site_owner_mobile_number',
+        'deciding_authority',
+        'deciding_authority_mobile_number',
         'site_area',
         'site_address',
         'latitude',
@@ -40,7 +44,7 @@ class Lead extends Model
         'status',
 'follow_up_date','final_quotation_pdf', 'won_date', 'expected_installation_date', 
     'advance_received', 'lost_type', 'competitor', 
-    'installed_date', 'handovered_date'
+    'installed_date', 'handovered_date','brand_id'
     ];
 
     protected $casts = [

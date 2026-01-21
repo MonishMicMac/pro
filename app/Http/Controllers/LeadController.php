@@ -150,4 +150,31 @@ public function index()
         $lead = Lead::with(['measurements', 'fabricatorRequests.fabricator', 'assignedUser', 'creator', 'handoverPhotos', 'images'])->findOrFail($id);
         return view('leads.show', compact('lead'));
     }
+
+
+      public function fieldActivity()
+    {
+        $authUser = Auth::user();
+        
+        // Leads assigned to the current user
+        $leads = Lead::where('user_id', $authUser->id)
+            ->whereNotIn('lead_stage', [5, 6, 7]) // Not Won, Handed Over or Lost
+            ->orderBy('name')
+            ->get();
+
+        // Today's scheduled visits
+        $scheduledVisits = Lead::where('user_id', $authUser->id)
+            ->whereDate('follow_up_date', Carbon::today())
+            ->get();
+
+        // Any currently active visit (Checked-in but not yet Checked-out)
+        $activeVisit = \App\Models\LeadVisit::whereHas('lead', function($q) use ($authUser) {
+                $q->where('user_id', $authUser->id);
+            })
+            ->where('action', 'In-Progress')
+            ->with('lead')
+            ->first();
+
+        return view('leads.on_field', compact('leads', 'scheduledVisits', 'activeVisit'));
+    }
 }

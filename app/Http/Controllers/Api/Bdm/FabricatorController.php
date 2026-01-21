@@ -66,6 +66,7 @@ class FabricatorController extends Controller
             'is_existing' => 0, // NEW
             'status'      => 0, // APPROVED
             'action'      => 0,
+            'created_by' => auth()->id(),
             'request_date' => now(),
             'approved_date' => now()
         ]);

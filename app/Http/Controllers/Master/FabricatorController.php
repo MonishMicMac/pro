@@ -154,6 +154,7 @@ class FabricatorController extends Controller
 
             'gst' => $request->gst,
             'created_by' => auth()->id(),
+            'is_existing' => $request->is_existing
         ]);
 
 

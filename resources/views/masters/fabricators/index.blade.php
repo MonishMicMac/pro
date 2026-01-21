@@ -194,9 +194,9 @@
                             </th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Created By
                             </th>
-                            <th
+                            {{-- <th
                                 class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">
-                                Status</th>
+                                Status</th> --}}
                         </tr>
                     </thead>
                     <tbody class="text-xs font-bold text-slate-700"></tbody>
@@ -212,7 +212,7 @@
 
     <div id="floating-bar"
         class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 rounded-2xl px-5 py-2.5 flex items-center gap-5 shadow-2xl transition-all duration-500 translate-y-20 opacity-0 pointer-events-none">
-        <div class="flex items-center gap-2 text-white border-r border-slate-700 pr-4">
+        <div id="floating-selected" class="flex items-center gap-2 text-white border-r border-slate-700 pr-4">
             <span class="flex h-5 w-5 items-center justify-center rounded-lg bg-blue-500 text-[10px] font-black"
                 id="selected-count">0</span>
             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selected</span>
@@ -230,19 +230,19 @@
                 </button>
             @endcan
             @can('fabricators.delete')
-                <button onclick="handleBulkDelete()"
+                <button id="floating-delete" onclick="handleBulkDelete()"
                     class="flex items-center gap-1.5 text-rose-400 hover:text-rose-300 transition-all text-[10px] font-bold uppercase tracking-widest">
                     <span class="material-symbols-outlined text-[18px]">delete_sweep</span> Delete
                 </button>
             @endcan
-            <button id="bulk-approve" class="text-green-400">Approve</button>
-            <button id="bulk-decline" class="text-rose-400">Decline</button>
+            {{-- <button id="bulk-approve" class="text-green-400">Approve</button>
+            <button id="bulk-decline" class="text-rose-400">Decline</button> --}}
 
         </div>
     </div>
 
     <div id="fabricatorModal"
-        class="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm hidden  p-4">
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm hidden  p-4">
         <div
             class="modal-content glass-panel w-full max-w-3xl mx-auto rounded-[1.25rem] p-6 shadow-2xl transition-all duration-300 transform scale-95 opacity-0
         max-h-[90vh] overflow-y-auto">
@@ -277,6 +277,12 @@
                 <div class="step step-1 grid grid-cols-2 gap-4">
 
                     <div class="col-span-2">
+                        <input type="checkbox" id="is_existing" name="is_existing" value="1"
+                            class="w-4 h-4 text-blue-600 border-slate-300 rounded">
+
+                        <label for="is_existing" class="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                            Existing Fabricator
+                        </label>
                         <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
                             Fabricator Shop Name
                         </label>
@@ -563,21 +569,37 @@
         </div>
     </div>
     <div id="viewModal"
-        class="fixed inset-0 z-[999] hidden bg-black/40 backdrop-blur-sm 
-        flex items-center justify-center p-4">
+        class="fixed inset-0 z-[9999] hidden bg-black/40 backdrop-blur-sm
+flex items-center justify-center p-4">
 
-        <div class="bg-white w-full max-w-4xl rounded-xl p-6
-            max-h-[90vh] overflow-y-auto">
+        <div
+            class="modal-content glass-panel w-full max-w-4xl
+rounded-[1.25rem] p-6 shadow-2xl
+max-h-[90vh] overflow-y-auto">
 
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-lg font-black text-slate-800">
+                        Fabricator Details
+                    </h3>
+                    <p class="text-xs text-slate-400 font-bold">
+                        Complete information
+                    </p>
+                </div>
 
-            <div class="flex justify-between mb-4">
-                <h3 class="font-black text-lg">Fabricator Details</h3>
-                <button onclick="closeView()" class="text-red-500 font-bold">X</button>
+                <button onclick="closeView()"
+                    class="w-8 h-8 flex items-center justify-center
+    rounded-full hover:bg-rose-50
+    text-slate-400 hover:text-rose-500">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
 
-            <!-- IMPORTANT: 3 columns -->
+            <!-- Content -->
             <div id="viewContent"
-                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm font-bold text-slate-700">
+                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+gap-4 text-xs font-bold text-slate-700">
             </div>
 
         </div>
@@ -585,7 +607,8 @@
 
 
 
-    <div id="remarkModal" class="fixed inset-0 bg-black/40 hidden flex items-center justify-center">
+
+    {{-- <div id="remarkModal" class="fixed inset-0 bg-black/40 hidden flex items-center justify-center">
         <div class="bg-white p-5 rounded-xl w-96">
             <h3 class="font-bold mb-3">Enter Remark</h3>
             <textarea id="status_remark" class="w-full border p-2 rounded" rows="3"></textarea>
@@ -597,7 +620,7 @@
                 </button>
             </div>
         </div>
-    </div>
+    </div> --}}
 
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
@@ -685,7 +708,7 @@
                     {
                         data: 'is_existing',
                         render: function(d) {
-                            if (d == 1) {
+                            if (d == 0) {
                                 return `<span class="px-2 py-1 bg-blue-100 text-blue-600 rounded-full text-[9px] font-black">NEW</span>`;
                             } else {
                                 return `<span class="px-2 py-1 bg-green-100 text-green-600 rounded-full text-[9px] font-black">EXISTING</span>`;
@@ -695,13 +718,13 @@
                     {
                         data: 'created_by'
                     },
-                    {
-                        data: 'status',
-                        className: 'text-center',
-                        render: (d) => d == 0 ?
-                            `<span class="inline-flex items-center gap-1 px-3 py-1 bg-green-500/10 text-green-600 rounded-full text-[9px] font-black uppercase tracking-widest"><span class="w-1 h-1 bg-green-500 rounded-full"></span>Approved</span>` :
-                            `<span class="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-400 rounded-full text-[9px] font-black uppercase tracking-widest">Unapproved</span>`
-                    }
+                    // {
+                    //     data: 'status',
+                    //     className: 'text-center',
+                    //     render: (d) => d == 0 ?
+                    //         `<span class="inline-flex items-center gap-1 px-3 py-1 bg-green-500/10 text-green-600 rounded-full text-[9px] font-black uppercase tracking-widest"><span class="w-1 h-1 bg-green-500 rounded-full"></span>Approved</span>` :
+                    //         `<span class="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-400 rounded-full text-[9px] font-black uppercase tracking-widest">Unapproved</span>`
+                    // }
                 ],
                 dom: 'rtp',
                 language: {
@@ -747,6 +770,8 @@
                 $('#modalTitle').text('Add New Fabricator');
                 $('#state').val('').trigger('change');
                 $('#brands').val(null).trigger('change');
+
+
 
                 // 1. Remove hidden first so it exists in the DOM
                 $('#fabricatorModal').removeClass('hidden');
@@ -990,6 +1015,12 @@
                 $.get(editUrl, function(res) {
                     $('#fabricator_id').val(res.id);
                     $('#fabricator_name').val(res.shop_name);
+                    // Existing checkbox
+                    if (res.is_existing == 1) {
+                        $('#is_existing').prop('checked', true);
+                    } else {
+                        $('#is_existing').prop('checked', false);
+                    }
                     $('#mobile').val(res.mobile);
                     $('select[name="division"]').val(res.division);
                     $('select[name="category"]').val(res.category);

@@ -8,10 +8,29 @@ class LeadVisit extends Model
 {
     protected $table = 'lead_visits';
 
-    protected $fillable = [
-        'lead_id', 'user_id', 'intime_time', 'out_time', 'inlat', 'inlong', 
-        'outlat', 'outlong', 'remarks', 'image', 'action'
-    ];
+ protected $fillable = [
+    'user_id', 
+    'type',
+    'lead_id', 
+    'account_id', 
+    'fabricator_id', 
+    'visit_type', 
+    'food_allowance', 
+    'schedule_date', 
+    'visit_date', 
+    'intime_time', 
+    'out_time', 
+    'inlat', 
+    'inlong', 
+    'outlat', 
+    'outlong', 
+    'remarks', 
+    'work_type', 
+    'bdm_id', 
+    'bdo_id', 
+    'image', 
+    'action'
+];
 
     public function user()
     {

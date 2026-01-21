@@ -9,6 +9,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
 use App\Models\LeadHandoverPhoto;
 use App\Models\FabricatorRequest;
+use App\Models\LeadVisit;
 
 use App\Helpers\LeadHelper;
 
@@ -23,6 +24,10 @@ public function storeSiteIdentification(Request $request)
     $validator = Validator::make($request->all(), [
         'user_id'          => 'required|exists:users,id',
         'city'             => 'required|string|max:255',
+        'site_owner_name'  => 'required|string|max:255',
+        'site_owner_mobile_number'  => 'required|string|max:255',
+        'deciding_authority'  => 'required|string|max:255',
+        'deciding_authority_mobile_number'  => 'required|string|max:255',
         'site_area'        => 'required|string|max:255',
         'site_address'     => 'required|string',
         'latitude'         => 'required|numeric|between:-90,90',
@@ -120,71 +125,410 @@ public function getLeadsByUser(Request $request)
     ], 200);
 }
 
-
-public function leadCheckIn(Request $request)
+/**
+ * Create a Visit Schedule
+ */
+public function storeSchedule(Request $request)
 {
+    // Define the date range (Today to Today + 25 Days)
+    $today = Carbon::today()->format('Y-m-d');
+    $maxDate = Carbon::today()->addDays(25)->format('Y-m-d');
+
     $validator = Validator::make($request->all(), [
-        'lead_id' => 'required|exists:leads,id',
-        'inlat'   => 'required',
-        'inlong'  => 'required',
-        'image'   => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        'user_id'        => 'required|exists:users,id',
+        'visit_type'     => 'required|in:1,2,3', 
+        
+        'lead_id'        => 'nullable|required_if:visit_type,2|exists:leads,id',
+        'account_id'     => 'nullable|required_if:visit_type,1',
+        'fabricator_id'  => 'nullable|required_if:visit_type,3',
+        
+        'food_allowance' => 'required|in:0,1,2',
+        
+        // Dynamic Date Validation: Must be between today and today + 25 days
+        'schedule_date'  => [
+            'required',
+            'date_format:Y-m-d',
+            'after_or_equal:' . $today,
+            'before_or_equal:' . $maxDate
+        ],
+        
+        'work_type'      => 'nullable|in:Individual,Joint Work',
+        'bdm_id'         => 'nullable|string',
+        'bdo_id'         => 'nullable|string',
+    ], [
+        // Custom error message for the date
+        'schedule_date.before_or_equal' => 'You can only schedule visits up to 25 days in advance.',
+        'schedule_date.after_or_equal'  => 'The schedule date cannot be in the past.'
     ]);
 
     if ($validator->fails()) {
-        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
     }
 
-    $imagePath = null;
-    if ($request->hasFile('image')) {
-        $imagePath = $request->file('image')->store('visits', 'public');
-    }
+    try {
+        $visit = LeadVisit::create([
+            'user_id'        => $request->user_id,
+            'lead_id'        => $request->lead_id ?? null,
+            'account_id'     => $request->account_id ?? null,
+            'fabricator_id'  => $request->fabricator_id ?? null,
+            'visit_type'     => $request->visit_type,
+            'food_allowance' => $request->food_allowance,
+            'schedule_date'  => $request->schedule_date,
+            'work_type'      => $request->work_type ?? 'Individual',
+            'bdm_id'         => $request->bdm_id,
+            'bdo_id'         => $request->bdo_id,
+            'action'         => '0', 
+        ]);
 
-    $visit = LeadVisit::create([
-        'lead_id'     => $request->lead_id,
-        'intime_time' => Carbon::now()->toTimeString(),
-        'inlat'       => $request->inlat,
-        'inlong'      => $request->inlong,
-        'image'       => $imagePath,
-        'action'      => 'In-Progress'
+        return response()->json([
+            'status'  => true,
+            'message' => 'Schedule created successfully',
+            'data'    => $visit
+        ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Get Today's Schedule List for a User
+ */
+public function getScheduleList(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'user_id' => 'required|exists:users,id',
     ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    // 1. Define today's date
+    $today = Carbon::today()->toDateString();
+
+    // 2. Fetch only today's records for this user
+    $schedules = LeadVisit::where('user_id', $request->user_id)
+        ->whereDate('schedule_date', $today)
+        ->orderBy('created_at', 'desc')
+        ->get();
 
     return response()->json([
         'status'  => true,
-        'message' => 'Check-in successful',
-        'data'    => $visit
-    ], 201);
+        'message' => 'Today schedule list retrieved successfully',
+        'count'   => $schedules->count(),
+        'data'    => $schedules
+    ], 200);
 }
+
+// public function leadCheckIn(Request $request)
+// {
+//     $validator = Validator::make($request->all(), [
+//         'lead_id' => 'required|exists:leads,id',
+//         'inlat'   => 'required',
+//         'inlong'  => 'required',
+//         'image'   => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+//     ]);
+
+//     if ($validator->fails()) {
+//         return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+//     }
+
+//     $imagePath = null;
+//     if ($request->hasFile('image')) {
+//         $imagePath = $request->file('image')->store('visits', 'public');
+//     }
+
+//     $visit = LeadVisit::create([
+//         'lead_id'     => $request->lead_id,
+//         'intime_time' => Carbon::now()->toTimeString(),
+//         'inlat'       => $request->inlat,
+//         'inlong'      => $request->inlong,
+//         'image'       => $imagePath,
+//         'action'      => 'In-Progress'
+//     ]);
+
+//     return response()->json([
+//         'status'  => true,
+//         'message' => 'Check-in successful',
+//         'data'    => $visit
+//     ], 201);
+// }
+
+/**
+ * Check-in to an existing schedule
+ * Updates intime_time, visit_date, inlat, inlong, and image
+ */
+public function leadCheckIn(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'visit_id' => 'required|exists:lead_visits,id', // Use the primary ID of the table
+        'inlat'    => 'required',
+        'inlong'   => 'required',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false, 
+            'message' => $validator->errors()->first()
+        ], 422);
+    }
+
+    try {
+        // 1. Find the existing schedule record
+        $visit = LeadVisit::find($request->visit_id);
+
+        // 3. Update the existing record
+        $visit->update([
+            'visit_date'  => Carbon::now()->format('Y-m-d'), // Stores only date
+            'intime_time' => Carbon::now()->format('H:i:s'), // Stores only time
+            'inlat'       => $request->inlat,
+            'inlong'      => $request->inlong,
+            'action'      => '0', // As per your requirement to keep/update action to '0'
+        ]);
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Check-in successful',
+            'data'    => $visit
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
 
 public function leadCheckOut(Request $request)
 {
-    $validator = Validator::make($request->all(), [
-        'visit_id' => 'required|exists:lead_visits,id',
-        'outlat'   => 'required',
-        'outlong'  => 'required',
-        'remarks'  => 'required|string',
-    ]);
+    // 1. Define base validation rules for Checkout
+    $rules = [
+        'visit_id'    => 'required|exists:lead_visits,id',
+        'outlat'      => 'required',
+        'outlong'     => 'required',
+        'remarks'     => 'required|string',
+        'action_type' => 'nullable|string', 
+    ];
+
+    // 2. Add Conditional Validation for 'follow_up'
+    if ($request->action_type == 'follow_up') {
+        $rules['current_building_stage'] = 'required|string|max:255';
+        $rules['total_required_area_sqft'] = 'required|numeric|min:1';
+        
+        // NEW: Validate brand_id (Ensure 'brands' matches your database table name)
+        $rules['brand_id'] = 'required|exists:brands,id'; 
+    }
+
+    $validator = Validator::make($request->all(), $rules);
 
     if ($validator->fails()) {
         return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
     }
 
+    // 3. Find the Visit
     $visit = LeadVisit::find($request->visit_id);
-    
+
+    // 4. Handle Follow-up Logic if applicable
+    if ($request->action_type == 'follow_up') {
+        
+        $lead = Lead::find($visit->lead_id);
+
+        if ($lead) {
+            // Update Lead details including Brand ID
+            $lead->update([
+                'building_status'          => $request->current_building_stage,
+                'total_required_area_sqft' => $request->total_required_area_sqft,
+                'brand_id'                 => $request->brand_id, // NEW: Store the brand
+                'lead_stage'               => 3, 
+            ]);
+
+            // Log status
+            LeadHelper::logStatus(
+                $lead,
+                $request->current_building_stage,
+                3
+            );
+        }
+    }
+
+    // 5. Determine the Action Name
+    $actionName = ($request->action_type == 'follow_up') ? 'Follow-up Done' : 'Completed';
+
+    // 6. Update the Visit (Checkout)
     $visit->update([
         'out_time' => Carbon::now()->toTimeString(),
         'outlat'   => $request->outlat,
         'outlong'  => $request->outlong,
         'remarks'  => $request->remarks,
-        'action'   => 'Completed'
+        'action'   => $actionName
     ]);
 
     return response()->json([
         'status'  => true,
-        'message' => 'Check-out successful',
+        'message' => 'Check-out successful and Lead details updated',
         'data'    => $visit
     ], 200);
 }
 
+
+/**
+ * Step 1: Create an Unplanned Visit
+ * Only creates the record and fetches food_allowance
+ */
+public function storeUnplannedSchedule(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'user_id'        => 'required|exists:users,id',
+        'visit_type'     => 'required|in:1,2,3',
+        'lead_id'        => 'nullable|required_if:visit_type,2',
+        'account_id'     => 'nullable|required_if:visit_type,1',
+        'fabricator_id'  => 'nullable|required_if:visit_type,3',
+        'work_type'      => 'nullable|in:Individual,Joint Work',
+        'bdm_id'         => 'nullable|string',
+        'bdo_id'         => 'nullable|string',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+    }
+
+    try {
+        $today = Carbon::today()->toDateString();
+
+        // 1. Fetch food_allowance from today's first planned record
+        $plannedVisit = \App\Models\LeadVisit::where('user_id', $request->user_id)
+            ->where('type', 'planned')
+            ->whereDate('schedule_date', $today)
+            ->first();
+
+        $autoFoodAllowance = $plannedVisit ? $plannedVisit->food_allowance : '1';
+
+        // 2. Create the Unplanned Record (No check-in data yet)
+        $visit = \App\Models\LeadVisit::create([
+            'user_id'        => $request->user_id,
+            'lead_id'        => $request->lead_id,
+            'account_id'     => $request->account_id,
+            'fabricator_id'  => $request->fabricator_id,
+            'visit_type'     => $request->visit_type,
+            'type'           => 'unplanned',
+            'food_allowance' => $autoFoodAllowance,
+            'schedule_date'  => $today,
+            'work_type'      => $request->work_type ?? 'Individual',
+            'bdm_id'         => $request->bdm_id,
+            'bdo_id'         => $request->bdo_id,
+            'action'         => '0', 
+        ]);
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Unplanned schedule created successfully. Please Check-in now.',
+            'data'    => $visit
+        ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Get Unplanned Schedule List for a User
+ */
+public function getUnplannedScheduleList(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'user_id' => 'required|exists:users,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+    }
+
+    $schedules = LeadVisit::where('user_id', $request->user_id)
+        ->where('type', 'unplanned')
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Unplanned schedule list retrieved successfully',
+        'count'   => $schedules->count(),
+        'data'    => $schedules
+    ], 200);
+}
+
+/**
+ * Unplanned Check-in
+ * Updates intime_time, visit_date, inlat, inlong, and image for an unplanned visit
+ */
+public function unplannedCheckIn(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'visit_id' => 'required|exists:lead_visits,id', 
+        'inlat'    => 'required',
+        'inlong'   => 'required',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false, 
+            'message' => $validator->errors()->first()
+        ], 422);
+    }
+
+    try {
+        // 1. Find the existing unplanned record
+        $visit = LeadVisit::find($request->visit_id);
+
+        // 2. Security Check
+        if ($visit->type !== 'unplanned') {
+            return response()->json([
+                'status' => false,
+                'message' => 'This record is not an unplanned visit.'
+            ], 400);
+        }
+
+        // --- NEW CHECK: Prevent duplicate In-Time ---
+        if (!empty($visit->intime_time)) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Check-in already done for this visit.'
+            ], 400);
+        }
+
+        // 4. Update the record
+        $visit->update([
+            'visit_date'  => Carbon::now()->format('Y-m-d'),
+            'intime_time' => Carbon::now()->format('H:i:s'),
+            'inlat'       => $request->inlat,
+            'inlong'      => $request->inlong,
+            'action'      => '1', // Setting to '1' (In-Progress)
+        ]);
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Unplanned Check-in successful',
+            'data'    => $visit
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 500);
+    }
+}
 
 public function storeFollowupMeeting(Request $request)
 {

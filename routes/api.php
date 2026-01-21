@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\Users\LoginController;
 use App\Http\Controllers\Api\Users\AttendanceController;
 use App\Http\Controllers\Api\Fabricator\LoginController as FabricatorLoginController;
 use App\Http\Controllers\Api\Users\FabricatorController;
+use App\Http\Controllers\Api\Users\ReportController;
+
 
 
 Route::post('/leads/site-identification', [LeadController::class, 'storeSiteIdentification']);
@@ -14,8 +16,15 @@ Route::get('/leads/view', [LeadController::class, 'getLeadsByUser']);
 Route::post('/leads/new', [LeadController::class, 'storeOrConvertToNewLead']);
 Route::post('/leads/{id}/followup', [LeadController::class, 'addFollowUp']);
 
+Route::post('/leads/schedule', [LeadController::class, 'storeSchedule']);
+Route::get('/leads/schedule-list', [LeadController::class, 'getScheduleList']);
 Route::post('/leads/check-in', [LeadController::class, 'leadCheckIn']);
 Route::post('/leads/check-out', [LeadController::class, 'leadCheckOut']);
+
+Route::post('/leads/unplanned-schedule', [LeadController::class, 'storeUnplannedSchedule']);
+Route::get('/leads/unplanned-schedule-list', [LeadController::class, 'getUnplannedScheduleList']);
+Route::post('/leads/unplanned-check-in', [LeadController::class, 'unplannedCheckIn']);
+
 
 Route::post('/digital-marketing-leads', [DigitalMarketingLeadController::class, 'store']);
 
@@ -51,6 +60,7 @@ Route::prefix('users')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('punch-in', [AttendanceController::class, 'punchIn']);
         Route::post('punch-out', [AttendanceController::class, 'punchOut']);
+        Route::get('consolidated-report', [ReportController::class, 'getConsolidatedReport']);
     });
 });
 
@@ -58,11 +68,11 @@ Route::prefix('fabricator')->group(function () {
     Route::post('login', [FabricatorLoginController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
-
+        Route::post('logout', [FabricatorLoginController::class, 'logout']);
         Route::post('update/{id}', [FabricatorLoginController::class, 'update']);
         Route::get(
             'dashboard',
-            [FabricatorLoginController::class, 'dashboard']
+            [FabricatorController::class, 'dashboard']
         );
     });
 });

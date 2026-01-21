@@ -7,6 +7,8 @@ use App\Models\Fabricator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\FabricatorRequest;
+use Illuminate\Support\Facades\Auth;
+
 
 class FabricatorController extends Controller
 {
@@ -88,8 +90,7 @@ class FabricatorController extends Controller
 
     public function dashboard(Request $request)
     {
-        $fabricatorId = $request->fabricator_id;
-
+        $fabricatorId = Auth::id();
 
         $total = FabricatorRequest::where('fabricator_id', $fabricatorId)->count();
 
@@ -106,7 +107,8 @@ class FabricatorController extends Controller
             'data' => [
                 'total_requests' => $total,
                 'pending_requests' => $pending,
-                'completed_requests' => $completed
+                'completed_requests' => $completed,
+
             ]
         ]);
     }

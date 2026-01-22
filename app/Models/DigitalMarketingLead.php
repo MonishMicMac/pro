@@ -16,7 +16,7 @@ class DigitalMarketingLead extends Model
         'ad_set_name', 'form_id', 'referred_from', 'notes', 'enquiry_count',
         'stage','customer_type','colour','total_order_sqft','building_status','building_type',
         'remarks','assigned_to','zone','future_follow_up_date','potential_follow_up_date','future_follow_up_time','potential_follow_up_time','disqualified_reason','rnr_reason',
-        'lead_id'
+        'lead_id','transfered_by','transfered_date','before_transfer_user','transfter_remarks'
     ];
 
     public function assignedUser(): BelongsTo

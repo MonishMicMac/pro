@@ -204,9 +204,23 @@ Route::prefix('fabricator')
         Route::get(
             'assignments',
             [FabricatorDashboardController::class, 'myAssignments']
-        );
+        )->name('fabricator.assignments');
+        // web.php
+        Route::get(
+            'measurements/{lead}',
+            [FabricatorDashboardController::class, 'measurementView']
+        )->name('fabricator.measurements');
+        Route::post(
+            'upload',
+            [FabricatorDashboardController::class, 'uploadFabricationDetails']
+        )->name('fabricator.upload.pdf');
     });
 
 
 Route::get('fabricator-projections/data', [App\Http\Controllers\FabricatorProjectionController::class, 'getData'])->name('fabricator-projections.data');
 Route::resource('fabricator-projections', App\Http\Controllers\FabricatorProjectionController::class);
+
+
+Route::get('bdm-field-activity', [App\Http\Controllers\LeadVisitBdmController::class, 'fieldActivity'])->name('bdm.field-activity');
+Route::get('bdm-visit-report', [App\Http\Controllers\LeadVisitBdmController::class, 'report'])->name('bdm.visit-report');
+Route::get('bdm-visit-report/data', [App\Http\Controllers\LeadVisitBdmController::class, 'reportData'])->name('bdm.visit-report.data');

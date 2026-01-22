@@ -18,8 +18,8 @@ class LeadVisitBdm extends Model
         'food_allowance', 
         'schedule_date', 
         'visit_date', 
-        'intime_time', 
-        'out_time', 
+        'intime', 
+        'outtime', 
         'inlat', 
         'inlong', 
         'outlat', 
@@ -29,6 +29,7 @@ class LeadVisitBdm extends Model
         'bdm_id', 
         'bdo_id', 
         'image', 
+        'vehicle_type', 
         'action'
     ];
 
@@ -49,6 +50,16 @@ class LeadVisitBdm extends Model
 
     public function fabricator()
     {
-        return $this->belongsTo(User::class, 'fabricator_id');
+        return $this->belongsTo(Fabricator::class, 'fabricator_id');
+    }
+
+    public function bdm()
+    {
+        return $this->belongsTo(User::class, 'bdm_id');
+    }
+
+    public function bdo()
+    {
+        return $this->belongsTo(User::class, 'bdo_id');
     }
 }

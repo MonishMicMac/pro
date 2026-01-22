@@ -3,139 +3,202 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
     rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<style>
+    .dataTables_wrapper {
+        padding: 0 !important;
+    }
+
+    table.dataTable {
+        width: 100% !important;
+        border-collapse: separate !important;
+        border-spacing: 0 10px;
+        /* row gap */
+    }
+
+    table.dataTable thead th {
+        text-align: left;
+        padding: 12px 16px;
+        font-size: 11px;
+    }
+
+    table.dataTable tbody tr {
+        background: #fff;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .05);
+        border-radius: 14px;
+    }
+
+    table.dataTable tbody td {
+        padding: 14px 16px;
+        vertical-align: middle;
+    }
+
+    /* Fix show entries overlap */
+    .dataTables_length {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .dataTables_length select {
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+    }
+
+    /* Pagination spacing */
+    .dataTables_paginate {
+        margin-top: 10px;
+    }
+</style>
 @section('content')
     <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
 
+        <h3 class="text-base font-bold text-slate-800 uppercase tracking-wider">
+            Fabricator Requests
+        </h3>
         <div class="flex items-center justify-between mb-6">
-            <h3 class="text-base font-bold text-slate-800 uppercase tracking-wider">
-                Fabricator Requests
-            </h3>
 
             <!-- FILTER -->
-            <div class="flex gap-2">
-                <button class="filter-btn px-3 py-1 rounded-lg text-xs font-bold bg-slate-100" data-status="all">All</button>
+            <div class="glass-panel rounded-[1.5rem] p-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
 
-                <button class="filter-btn px-3 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-700"
-                    data-status="0">Pending</button>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            Status
+                        </label>
+                        <select id="filter_status"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+                            <option value="">All</option>
+                            <option value="0">Pending</option>
+                            <option value="1">Completed</option>
+                        </select>
+                    </div>
 
-                <button class="filter-btn px-3 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700"
-                    data-status="1">Completed</button>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            From Date
+                        </label>
+                        <input type="date" id="filter_from_date"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+                    </div>
+
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            To Date
+                        </label>
+                        <input type="date" id="filter_to_date"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+                    </div>
+
+                    <div class="flex items-end gap-2 lg:col-span-2">
+                        <button id="btn_filter"
+                            class="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-lg">
+                            Filter
+                        </button>
+
+                        <button id="btn_reset" class="px-3 py-2 bg-white border border-slate-200 rounded-xl">
+                            Reset
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <div class="glass-panel rounded-[1.5rem] overflow-hidden">
+
+            <div class="px-4 overflow-x-auto pt-4">
+                <table class="w-full" id="assignmentTable">
+                    <thead>
+                        <tr class="text-left">
+                            <th class="pl-4 pb-2 text-[10px] font-black text-slate-400 uppercase">Lead</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase">Sqft</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase">Status</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase">Rate</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase">PDF</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase">Date</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase">
+                                View
+                            </th>
+
+                        </tr>
+                    </thead>
+                    <tbody class="text-xs font-bold text-slate-700">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-4 bg-white/40 border-t flex justify-between">
+                <p id="table-info" class="text-[9px] font-black text-slate-400 uppercase"></p>
+                <div id="table-pagination"></div>
             </div>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b text-left">
-                        <th class="py-3">Lead</th>
-                        <th>Approx Sq.ft</th>
-                        <th>Status</th>
-                        <th>Rate</th>
-                        <th>PDF</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-
-                <tbody id="requestTable">
-                    @forelse($fabricator->requests as $req)
-                        <tr class="border-b request-row" data-status="{{ $req->status }}">
-
-                            <td class="py-3 font-semibold">
-                                {{ $req->lead->name ?? '-' }}
-                            </td>
-
-                            <td>{{ $req->approx_sqft }}</td>
-
-                            <td>
-                                <span
-                                    class="px-3 py-1 rounded-full text-xs font-bold
-        {{ $req->status == 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
-                                    {{ $req->status == 0 ? 'Pending' : 'Completed' }}
-                                </span>
-                            </td>
-
-                            <td>{{ $req->rate_per_sqft ?? '-' }}</td>
-
-                            <td>
-                                @if ($req->fabrication_pdf)
-                                    <a href="{{ asset('storage/' . $req->fabrication_pdf) }}" target="_blank"
-                                        class="text-red-500 font-bold">
-                                        PDF
-                                    </a>
-                                @else
-                                    -
-                                @endif
-                            </td>
-
-                            <td class="text-slate-500">
-                                {{ $req->created_at->format('d M Y') }}
-                            </td>
-
-                            {{-- MEASUREMENT DETAILS --}}
-                            <td class="text-xs space-y-2">
-
-                                @forelse($req->lead->measurements as $m)
-                                    <div class="border rounded p-2 bg-slate-50">
-                                        <b>Product:</b> {{ $m->product }} <br>
-
-                                        <b>Design:</b> {{ $m->design_code }} <br>
-
-                                        <b>Size:</b>
-                                        {{ $m->width_val }} {{ $m->width_unit }}
-                                        ×
-                                        {{ $m->height_val }} {{ $m->height_unit }} <br>
-
-                                        <b>Qty:</b> {{ $m->qty }}
-                                        | <b>Sqft:</b> {{ $m->sqft }}
-
-                                        @if ($m->color)
-                                            <br><b>Color:</b> {{ $m->color }}
-                                        @endif
-                                    </div>
-
-                                @empty
-                                    <span class="text-slate-400">No measurement</span>
-                                @endforelse
-
-                            </td>
-
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center py-6 text-slate-400 text-sm">
-                                No requests found
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-
-            </table>
-        </div>
     </div>
     <script>
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+        $(document).ready(function() {
 
-                let status = this.dataset.status;
-
-                document.querySelectorAll('.request-row')
-                    .forEach(row => {
-
-                        if (status === 'all') {
-                            row.classList.remove('hidden');
-                        } else {
-                            row.dataset.status === status ?
-                                row.classList.remove('hidden') :
-                                row.classList.add('hidden');
+            let table = $('#assignmentTable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: "{{ route('fabricator.assignments') }}",
+                    data: function(d) {
+                        d.status = $('#filter_status').val();
+                        d.from_date = $('#filter_from_date').val();
+                        d.to_date = $('#filter_to_date').val();
+                    }
+                },
+                columns: [{
+                        data: 'lead'
+                    },
+                    {
+                        data: 'approx_sqft'
+                    },
+                    {
+                        data: 'status'
+                    },
+                    {
+                        data: 'rate_per_sqft'
+                    },
+                    {
+                        data: 'fabrication_pdf',
+                        render: function(d) {
+                            return d ?
+                                `<a href="/prominance_new/storage/${d}" target="_blank" class="text-red-600">PDF</a>` :
+                                '-';
                         }
-                    });
-
-                // active style
-                document.querySelectorAll('.filter-btn')
-                    .forEach(b => b.classList.remove('ring', 'ring-blue-400'));
-
-                this.classList.add('ring', 'ring-blue-400');
+                    },
+                    {
+                        data: 'created_at'
+                    },
+                    {
+                        data: 'view',
+                        orderable: false,
+                        searchable: false
+                    }
+                ]
             });
+
+            // FILTER
+            $('#btn_filter').click(function() {
+                table.ajax.reload();
+            });
+
+            // RESET
+            $('#btn_reset').click(function() {
+                $('#filter_status').val('');
+                $('#filter_from_date').val('');
+                $('#filter_to_date').val('');
+                table.ajax.reload();
+            });
+
         });
     </script>
 @endsection

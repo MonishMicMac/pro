@@ -29,7 +29,7 @@ class LeadVisit extends Model
         'bdm_id', 
         'bdo_id', 
         'image', 
-        'action'
+        'action','lead_stage'
     ];
 
     public function user()

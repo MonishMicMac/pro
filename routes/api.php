@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\Fabricator\LoginController as FabricatorLoginContro
 use App\Http\Controllers\Api\Users\FabricatorController;
 use App\Http\Controllers\Api\Users\ReportController;
 use App\Http\Controllers\Api\FabricatorProjectionController;
+use App\Http\Controllers\Api\BdmController;
+
 
 
 
@@ -25,6 +27,18 @@ Route::post('/leads/check-out', [LeadController::class, 'leadCheckOut']);
 Route::post('/leads/unplanned-schedule', [LeadController::class, 'storeUnplannedSchedule']);
 Route::get('/leads/unplanned-schedule-list', [LeadController::class, 'getUnplannedScheduleList']);
 Route::post('/leads/unplanned-check-in', [LeadController::class, 'unplannedCheckIn']);
+
+// bdm leads schedule routes
+Route::post('/leads/bdm/schedule', [BdmController::class, 'storeBdmSchedule']);
+Route::get('/leads/bdm/schedule-list', [BdmController::class, 'getBdmScheduleList']);
+Route::post('/leads/bdm/check-in', [BdmController::class, 'leadBdmCheckIn']);
+Route::post('/leads/bdm/check-out', [BdmController::class, 'leadBdmCheckOut']);
+
+Route::post('/leads/bdm/unplanned-schedule', [BdmController::class, 'storeUnplannedBdmSchedule']);
+Route::get('/leads/bdm/unplanned-schedule-list', [BdmController::class, 'getUnplannedBdmScheduleList']);
+Route::post('/leads/bdm/unplanned-check-in', [BdmController::class, 'unplannedBdmCheckIn']);
+Route::post('/leads/bdm/unplanned-check-out', [BdmController::class, 'unplannedBdmCheckOut']);
+
 
 
 Route::post('/digital-marketing-leads', [DigitalMarketingLeadController::class, 'store']);

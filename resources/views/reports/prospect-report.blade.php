@@ -50,10 +50,45 @@
                     <label class="text-[10px] font-black uppercase text-slate-400">Zone</label>
                     <select id="filter_zone" class="form-input-custom">
                         <option value="">All</option>
-                        <option>North</option>
-                        <option>South</option>
-                        <option>East</option>
-                        <option>West</option>
+                        @foreach (\App\Models\Zone::pluck('name', 'id') as $id => $name)
+                            <option value="{{ $id }}">{{ $name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black uppercase text-slate-400">Telecaller</label>
+                    <select id="filter_telecaller" class="form-input-custom">
+                        <option value="">All</option>
+                        @foreach (\App\Models\User::whereHas('roles', function ($q) {
+            $q->where('name', 'Telecaller');
+        })->whereIn('id', \App\Models\DigitalMarketingLead::select('updated_by')->distinct())->get() as $user)
+                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black uppercase text-slate-400">Telecaller Stage</label>
+                    <select id="filter_tc_stage" class="form-input-custom">
+                        <option value="">All</option>
+                        @foreach (\App\Helpers\LeadHelper::getLeadStages() as $k => $v)
+                            <option value="{{ $k }}">{{ $v }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black uppercase text-slate-400">BDO Stage</label>
+                    <select id="filter_bdo_stage" class="form-input-custom">
+                        <option value="">All</option>
+                        <option value="0">Site Identification</option>
+                        <option value="1">Intro</option>
+                        <option value="2">FollowUp</option>
+                        <option value="3">Quote Pending</option>
+                        <option value="4">Quote Sent</option>
+                        <option value="5">Won</option>
+                        <option value="6">Site Handed Over</option>
+                        <option value="7">Lost</option>
                     </select>
                 </div>
 
@@ -83,20 +118,20 @@
         <div class="bg-white p-5 rounded-xl border">
             <div class="overflow-x-auto">
                 <table id="prospect-table" class="w-full">
-                    <thead>
-                        <tr class="text-left">
-                            <th>S.No</th>
-                            <th>Telecaller</th>
-                            <th>Lead Name</th>
-                            <th>Phone</th>
-                            <th>Stage</th>
-                            <th>Zone</th>
-                            <th>Created</th>
-                            <th>Follow-up</th>
-                            <th>Handover</th>
+                    <thead class="bg-slate-50">
+                        <tr class="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                            <th class="px-4 py-3">SNO</th>
+                            <th class="px-4 py-3">Telecaller</th>
+                            <th class="px-4 py-3">Telecaller Stage</th>
+                            <th class="px-4 py-3">BDO</th>
+                            <th class="px-4 py-3">Lead Name</th>
+                            <th class="px-4 py-3">BDO Stage</th>
+                            <th class="px-4 py-3">Zone</th>
+                            <th class="px-4 py-3">Created</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+
+                    <tbody class="text-xs font-semibold text-slate-700"></tbody>
                 </table>
             </div>
         </div>
@@ -108,68 +143,73 @@
     <script>
         $(function() {
 
-            const table = $('#prospect-table').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: "{{ route('prospect.report.data') }}",
-                    data: function(d) {
-                        d.zone = $('#filter_zone').val();
-                        d.from_date = $('#from_date').val();
-                        d.to_date = $('#to_date').val();
-                    }
-                },
-                columns: [{
-                        data: null,
-                        orderable: false,
-                        searchable: false,
-                        render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1
-                    },
-                    {
-                        data: 'telecaller',
-                        name: 'users.name'
-                    },
-                    {
-                        data: 'name',
-                        name: 'leads.name'
-                    },
-                    {
-                        data: 'phone_number',
-                        name: 'leads.phone_number'
-                    },
-                    {
-                        data: 'lead_stage',
-                        name: 'leads.lead_stage'
-                    },
-                    {
-                        data: 'zone',
-                        name: 'leads.zone'
-                    },
-                    {
-                        data: 'created_at',
-                        name: 'leads.created_at'
-                    },
-                    {
-                        data: 'follow_up_date',
-                        name: 'leads.follow_up_date'
-                    },
-                    {
-                        data: 'handovered_date',
-                        name: 'leads.handovered_date'
-                    },
-                ],
+                    const table = $('#prospect-table').DataTable({
+                            processing: true,
+                            serverSide: true,
+                            ajax: {
+                                url: "{{ route('prospect.report.data') }}",
+                                data: function(d) {
+                                    d.zone = $('#filter_zone').val();
+                                    d.from_date = $('#from_date').val();
+                                    d.to_date = $('#to_date').val();
+                                    d.telecaller = $('#filter_telecaller').val();
+                                    d.tc_stage = $('#filter_tc_stage').val();
+                                    d.bdo_stage = $('#filter_bdo_stage').val();
+                                }
+                            },
+                            columns: [{
+                                    data: null,
+                                    orderable: false,
+                                    searchable: false,
+                                    className: 'text-center',
+                                    render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1
+                                },
+                                {
+                                    data: 'telecaller',
+                                    orderable: false
+                                },
+                                {
+                                    data: 'telecaller_stage',
+                                    orderable: false
+                                },
+                                {
+                                    data: 'bdo',
+                                    orderable: false
+                                },
+                                {
+                                    data: 'name'
+                                },
+
+                                {
+                                    data: 'lead_stage',
+                                    orderable: false
+                                },
+                                {
+                                    data: 'zone_name',
+                                    orderable: false
+                                },
+                                {
+                                    data: 'created_at'
+                                },
+                            ],
+                            dom: 'rtp',
+                            language: {
+                                paginate: {
+                                    previous: '<span class="material-symbols-outlined text-[14px]">arrow_back_ios</span>',
+                                    next: '<span class="material-symbols-outlined text-[14px]">arrow_forward_ios</span>'
+                                }
+
+                            });
 
 
-            });
+                        $('#btn_filter').click(() => table.draw());
 
-            $('#btn_filter').click(() => table.draw());
-
-            $('#btn_reset').click(function() {
-                $('#filter_zone').val('');
-                $('#from_date').val("{{ date('Y-m-01') }}");
-                $('#to_date').val("{{ date('Y-m-d') }}");
-                table.draw();
-            });
-        });
+                        $('#btn_reset').click(function() {
+                            $('#filter_zone').val('');
+                            $('#from_date').val("{{ date('Y-m-01') }}");
+                            $('#to_date').val("{{ date('Y-m-d') }}");
+                            table.draw();
+                        });
+                    });
     </script>
 @endsection

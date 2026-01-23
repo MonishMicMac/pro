@@ -125,15 +125,12 @@ public function getLeadsByUser(Request $request)
     ], 200);
 }
 
-/**
- * Create a Visit Schedule BDO
- */
 public function storeSchedule(Request $request)
 {
     $today = Carbon::today()->format('Y-m-d');
     $maxDate = Carbon::today()->addDays(25)->format('Y-m-d');
 
-    // 1. Validate the structure (Top level + Visits array)
+    // 1. Strict Validation for BDO Input
     $validator = Validator::make($request->all(), [
         'user_id'        => 'required|exists:users,id',
         'food_allowance' => 'required|in:1,2,3,4',
@@ -143,12 +140,16 @@ public function storeSchedule(Request $request)
             'after_or_equal:' . $today,
             'before_or_equal:' . $maxDate
         ],
-        'visits'         => 'required|array|min:1',
-        'visits.*.visit_type' => 'required|in:1,2,3',
-        'visits.*.work_type'  => 'required|in:Individual,Joint Work',
+        'visits'                  => 'required|array|min:1',
+        'visits.*.visit_type'     => 'required|in:1,2,3',
+        
+        // Conditional validation: Ensure the correct ID is present for the specific type
+        'visits.*.account_id'     => 'required_if:visits.*.visit_type,1',
+        'visits.*.lead_id'        => 'required_if:visits.*.visit_type,2',
+        'visits.*.fabricator_id'  => 'required_if:visits.*.visit_type,3',
     ], [
         'schedule_date.before_or_equal' => 'You can only schedule visits up to 25 days in advance.',
-        'schedule_date.after_or_equal'  => 'The schedule date cannot be in the past.'
+        'visits.*.account_id.required_if' => 'Account ID is required for Visit Type 1',
     ]);
 
     if ($validator->fails()) {
@@ -161,30 +162,30 @@ public function storeSchedule(Request $request)
     try {
         $createdVisits = [];
         
-        // Loop through each visit in the JSON array
-        foreach ($request->visits as $index => $visitItem) {
+        foreach ($request->visits as $visitItem) {
             
             $visit = LeadVisit::create([
+                // Who is creating/owning this record
                 'user_id'        => $request->user_id,
+                
+                // Since this is BDO only, they are the BDO
+                'bdo_id'         => $request->user_id,
+                'bdm_id'         => null, // Manager not involved in this input
+                
+                // Defaults
                 'type'           => 'planned',
+                'work_type'      => 'Individual', // Default for BDO self-schedule
+                'action'         => '0',
                 
-                // Mapping IDs based on visit_type
-                'account_id'     => ($visitItem['visit_type'] == 1) ? ($visitItem['account_id'] ?? null) : null,
-                'lead_id'        => ($visitItem['visit_type'] == 2) ? ($visitItem['lead_id'] ?? null) : null,
-                'fabricator_id'  => ($visitItem['visit_type'] == 3) ? ($visitItem['fabricator_id'] ?? null) : null,
-                
-                'visit_type'     => $visitItem['visit_type'],
-                'work_type'      => $visitItem['work_type'] ?? 'Individual',
-                
-                // Use user_id as BDM if it's the manager creating it
-                'bdm_id'         => $request->user_id, 
-                'bdo_id'         => $visitItem['bdo_id'] ?? null,
-                
-                // Shared values from the top level
+                // Top Level Inputs
                 'food_allowance' => $request->food_allowance,
                 'schedule_date'  => $request->schedule_date,
                 
-                'action'         => '0', 
+                // Dynamic ID Assignment based on Visit Type
+                'visit_type'     => $visitItem['visit_type'],
+                'account_id'     => ($visitItem['visit_type'] == 1) ? $visitItem['account_id'] : null,
+                'lead_id'        => ($visitItem['visit_type'] == 2) ? $visitItem['lead_id'] : null,
+                'fabricator_id'  => ($visitItem['visit_type'] == 3) ? $visitItem['fabricator_id'] : null,
             ]);
 
             $createdVisits[] = $visit;
@@ -192,7 +193,7 @@ public function storeSchedule(Request $request)
 
         return response()->json([
             'status'  => true,
-            'message' => count($createdVisits) . ' visits scheduled successfully',
+            'message' => 'Schedule created successfully',
             'data'    => $createdVisits
         ], 201);
 
@@ -208,6 +209,9 @@ public function storeSchedule(Request $request)
 /**
  * Get Today's Schedule List for a User
  */
+/**
+ * Get Today's Schedule List for a User (BDO)
+ */
 public function getScheduleList(Request $request)
 {
     $validator = Validator::make($request->all(), [
@@ -221,20 +225,75 @@ public function getScheduleList(Request $request)
         ], 422);
     }
 
-    // 1. Define today's date
     $today = Carbon::today()->toDateString();
 
-    // 2. Fetch only today's records for this user
-    $schedules = LeadVisit::where('user_id', $request->user_id)
+    // 1. Fetch records with relationships to get names/roles
+    $schedules = LeadVisit::with(['lead', 'account', 'fabricator', 'user', 'bdo'])
+        ->where('user_id', $request->user_id)
         ->whereDate('schedule_date', $today)
         ->orderBy('created_at', 'desc')
         ->get();
 
+    // 2. Initialize the response structure
+    $response = [
+        'leads'       => [],
+        'accounts'    => [],
+        'fabricators' => []
+    ];
+
+    // 3. Loop and Format Data
+    foreach ($schedules as $row) {
+        
+        $data = [
+            'visit_id'        => $row->id,
+            'user_id'         => $row->user_id,
+            'user_role'       => $row->user ? $row->user->designation : null, 
+            'type'            => $row->type,
+            
+            // IDs
+            'lead_id'         => $row->lead_id,
+            'account_id'      => $row->account_id,
+            'fabricator_id'   => $row->fabricator_id,
+            
+            // Names (Resolved from relationships)
+            'lead_name'       => $row->lead ? $row->lead->name : null,
+            'account_name'    => $row->account ? $row->account->name : null,
+            'fabricator_name' => $row->fabricator ? $row->fabricator->shop_name : null,
+            
+            'visit_type'      => $row->visit_type,
+            'schedule_date'   => $row->schedule_date,
+            'visit_date'      => $row->visit_date,
+            'intime'          => $row->intime,
+            'outtime'         => $row->outtime,
+            'work_type'       => $row->work_type,
+            'remarks'         => $row->remarks,
+            'vehicle_type'    => $row->vehicle_type,
+            
+            // Coordinates
+            'in_lat'          => $row->inlat,
+            'in_long'         => $row->inlong,
+            
+            'created_at'      => $row->created_at,
+            
+            // BDO Details (If self-assigned, this is the user)
+            'bdo_id'          => $row->bdo_id,
+            'bdo_name'        => $row->bdo ? $row->bdo->name : null,
+        ];
+
+        // 4. Segregate based on visit_type
+        if ($row->visit_type == '1') { // Account
+            $response['accounts'][] = $data;
+        } elseif ($row->visit_type == '2') { // Lead
+            $response['leads'][] = $data;
+        } elseif ($row->visit_type == '3') { // Fabricator
+            $response['fabricators'][] = $data;
+        }
+    }
+
     return response()->json([
         'status'  => true,
         'message' => 'Today schedule list retrieved successfully',
-        'count'   => $schedules->count(),
-        'data'    => $schedules
+        'data'    => $response
     ], 200);
 }
 

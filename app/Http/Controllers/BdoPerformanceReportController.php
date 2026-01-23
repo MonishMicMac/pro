@@ -22,8 +22,9 @@ class BdoPerformanceReportController extends Controller
 
     public function data(Request $request)
     {
-        $query = User::
-            where('action', '0'); // Active users
+        $query = User::whereHas('roles', function($q) {
+            $q->where('id', 3);
+        })->where('action', '0'); // Active users
 
         if ($request->has('zone_id') && $request->zone_id) {
             $query->where('zone_id', $request->zone_id);
@@ -57,26 +58,26 @@ class BdoPerformanceReportController extends Controller
             })
             ->addColumn('intro_meeting', function ($user) use ($fromDate, $toDate) {
                 return LeadVisit::where('user_id', $user->id)
-                    ->where('visit_type', 'New')
+                    ->where('lead_stage', 1) // 1 = Intro
                     ->whereBetween('visit_date', [$fromDate, $toDate])
                     ->count();
             })
             ->addColumn('follow_up_meeting', function ($user) use ($fromDate, $toDate) {
                 return LeadVisit::where('user_id', $user->id)
-                    ->where('visit_type', 'Follow up')
+                    ->where('lead_stage', 2) // 2 = FollowUp
                     ->whereBetween('visit_date', [$fromDate, $toDate])
                     ->count();
             })
             ->addColumn('total_meetings', function ($user) use ($fromDate, $toDate) {
                 return LeadVisit::where('user_id', $user->id)
-                    ->whereIn('visit_type', ['New', 'Follow up'])
+                    ->whereIn('lead_stage', [1, 2])
                     ->whereBetween('visit_date', [$fromDate, $toDate])
                     ->count();
             })
             ->addColumn('quote_given', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
                     ->where(function($q) {
-                        $q->where('lead_stage', 'Quote Given')
+                        $q->where('lead_stage', '3')
                           ->orWhereHas('fabricatorRequests'); // Or check fabricator requests
                     })
                     ->whereBetween('updated_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']) // Use updated_at for stage change approx
@@ -85,7 +86,7 @@ class BdoPerformanceReportController extends Controller
             ->addColumn('quote_total_sqft', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
                      ->where(function($q) {
-                        $q->where('lead_stage', 'Quote Given')
+                        $q->where('lead_stage', '3')
                           ->orWhereHas('fabricatorRequests');
                     })
                     ->whereBetween('updated_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
@@ -93,40 +94,40 @@ class BdoPerformanceReportController extends Controller
             })
             ->addColumn('won_quote', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
-                    ->where('lead_stage', 'Deal Won')
+                    ->where('lead_stage', '5')
                     ->whereBetween('won_date', [$fromDate, $toDate])
                     ->count();
             })
             ->addColumn('won_white', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
-                    ->where('lead_stage', 'Deal Won')
+                    ->where('lead_stage', '5')
                     ->where('color_preference', 'White') // Verify logic
                     ->whereBetween('won_date', [$fromDate, $toDate])
                     ->count();
             })
             ->addColumn('won_laminate', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
-                    ->where('lead_stage', 'Deal Won')
+                    ->where('lead_stage', '5')
                     ->where('color_preference', 'Laminate') // Verify logic
                     ->whereBetween('won_date', [$fromDate, $toDate])
                     ->count();
             })
             ->addColumn('won_total_sqft', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
-                    ->where('lead_stage', 'Deal Won')
+                    ->where('lead_stage', '5')
                     ->whereBetween('won_date', [$fromDate, $toDate])
                     ->sum('total_required_area_sqft');
             })
              ->addColumn('ho_lead_won', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
-                    ->where('lead_stage', 'Deal Won')
+                    ->where('lead_stage', '5')
                     ->whereIn('lead_source', ['HO', 'Digital', 'Corporate'])
                     ->whereBetween('won_date', [$fromDate, $toDate])
                     ->count();
             })
              ->addColumn('pipeline_sqft', function ($user) {
                 return Lead::where('user_id', $user->id)
-                    ->whereNotIn('lead_stage', ['Deal Won', 'Deal Lost'])
+                    ->whereNotIn('lead_stage', ['5', '7'])
                     ->sum('total_required_area_sqft');
             })
             ->addColumn('working_days', function ($user) use ($fromDate, $toDate) {

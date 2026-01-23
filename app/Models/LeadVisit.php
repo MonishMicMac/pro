@@ -49,6 +49,12 @@ class LeadVisit extends Model
 
     public function fabricator()
     {
-        return $this->belongsTo(User::class, 'fabricator_id');
+        return $this->belongsTo(Fabricator::class, 'fabricator_id');
+    }
+
+    public function bdo()
+    {
+    // This tells Laravel: "bdo_id" in this table belongs to a "User"
+    return $this->belongsTo(User::class, 'bdo_id');
     }
 }

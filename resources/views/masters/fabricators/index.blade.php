@@ -121,6 +121,17 @@
             background: #cbd5e1;
             border-radius: 10px;
         }
+
+        #table-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        #table-pagination .paginate_button {
+            min-width: 28px;
+            height: 28px;
+        }
     </style>
 
     </style>
@@ -181,6 +192,7 @@
                                 Limit</th>
 
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Mobile</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Zone</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">State</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">District
                             </th>
@@ -358,6 +370,21 @@
 
                 <!-- ================= STEP 2 ================= -->
                 <div class="step step-2 hidden grid grid-cols-2 gap-4">
+                    <div>
+                        <label
+                            class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Zone</label>
+                        <select name="zone_id"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                            required>
+                            <option value="">Select Zone</option>
+                            @foreach ($zones as $zone)
+                                <option value="{{ $zone->id }}">
+                                    {{ $zone->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     <!-- State -->
                     <div>
                         <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
@@ -683,6 +710,10 @@ gap-4 text-xs font-bold text-slate-700">
                         data: 'mobile'
                     },
                     {
+                        data: 'zone',
+                        name: 'zone'
+                    },
+                    {
                         data: 'state',
                         name: 'state'
                     },
@@ -733,12 +764,24 @@ gap-4 text-xs font-bold text-slate-700">
                         next: '<span class="material-symbols-outlined text-[14px]">arrow_forward_ios</span>'
                     }
                 },
-                drawCallback: function(settings) {
-                    const total = settings.json ? settings.json.recordsTotal : 0;
-                    $('#table-info').text(`Total Records: ${total}`);
-                    $('#table-pagination').html($('.dataTables_paginate').html());
-                    $('.dataTables_paginate').empty();
+                drawCallback: function() {
+
+                    let info = this.api().page.info();
+
+                    $('#table-info').text(
+                        `Total Records: ${info.recordsTotal}`
+                    );
+
+                    // Proper move with event preservation
+                    let paginate = $('.dataTables_paginate').detach();
+
+                    paginate.addClass('flex items-center gap-1');
+
+                    $('#table-pagination')
+                        .empty()
+                        .append(paginate);
                 }
+
             });
 
             // Trigger Table Redraw on Filter Change
@@ -1035,6 +1078,7 @@ gap-4 text-xs font-bold text-slate-700">
 
                     $('input[name="credit_terms"]').val(res.payment_credit_terms);
                     $('input[name="credit_limit"]').val(res.credit_limit);
+                    $('select[name="zone_id"]').val(res.zone_id);
 
 
                     // Set State and trigger chain

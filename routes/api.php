@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Users\LoginController;
 use App\Http\Controllers\Api\Users\AttendanceController;
 use App\Http\Controllers\Api\Fabricator\LoginController as FabricatorLoginController;
 use App\Http\Controllers\Api\Users\FabricatorController;
+use App\Http\Controllers\Api\Users\FabricatorProfileController;
 use App\Http\Controllers\Api\Users\ReportController;
 use App\Http\Controllers\Api\FabricatorProjectionController;
 use App\Http\Controllers\Api\BdmController;
@@ -38,6 +39,13 @@ Route::post('/leads/bdm/unplanned-schedule', [BdmController::class, 'storeUnplan
 Route::get('/leads/bdm/unplanned-schedule-list', [BdmController::class, 'getUnplannedBdmScheduleList']);
 Route::post('/leads/bdm/unplanned-check-in', [BdmController::class, 'unplannedBdmCheckIn']);
 Route::post('/leads/bdm/unplanned-check-out', [BdmController::class, 'unplannedBdmCheckOut']);
+
+Route::post('/bdm/assignedbdolist', [BdmController::class, 'getAssignedBdoList']);
+Route::post('/bdm/lead-list', [BdmController::class, 'getBdmTeamLeadList']);
+
+Route::get('/zones/list', [BdmController::class, 'getZoneList']);
+
+
 
 
 
@@ -77,6 +85,18 @@ Route::prefix('users')->group(function () {
         Route::get('consolidated-report', [ReportController::class, 'getConsolidatedReport']);
         Route::post('fabricator/create', [FabricatorController::class, 'store']);
     });
+
+    Route::post('/fabricator/list', [FabricatorController::class, 'getFabricatorList']);
+    Route::post('/fabricator/details', [FabricatorController::class, 'getFabricatorDetails']);
+    Route::post('/tourplan', [BdmController::class, 'getTourPlanCalendar']);
+    Route::post('view/tourplan', [BdmController::class, 'viewTourPlan']);
+
+
+    
+    Route::get(
+        'fabricator/profile/{id}',
+        [FabricatorProfileController::class, 'profile']
+    );
 });
 
 Route::prefix('fabricator')->group(function () {

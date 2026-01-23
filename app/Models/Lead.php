@@ -42,9 +42,19 @@ class Lead extends Model
         'expected_timeline',
         'created_by',
         'status',
-'follow_up_date','final_quotation_pdf', 'won_date', 'expected_installation_date', 
-    'advance_received', 'lost_type', 'competitor', 
-    'installed_date', 'handovered_date','brand_id','priority','lead_temperature'
+        'follow_up_date',
+        'final_quotation_pdf',
+        'won_date',
+        'expected_installation_date',
+        'advance_received',
+        'lost_type',
+        'competitor',
+        'installed_date',
+        'handovered_date',
+        'brand_id',
+        'priority',
+        'lead_temperature',
+        'fabricator_id'
     ];
 
     protected $casts = [
@@ -70,7 +80,7 @@ class Lead extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-      public function measurements()
+    public function measurements()
     {
         return $this->hasMany(MeasurementDetail::class, 'lead_id');
     }
@@ -88,5 +98,10 @@ class Lead extends Model
     public function images()
     {
         return $this->hasMany(LeadImage::class, 'lead_id');
+    }
+
+    public function fabricator()
+    {
+        return $this->belongsTo(Fabricator::class, 'fabricator_id');
     }
 }

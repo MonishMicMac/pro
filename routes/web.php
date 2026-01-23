@@ -224,3 +224,33 @@ Route::resource('fabricator-projections', App\Http\Controllers\FabricatorProject
 Route::get('bdm-field-activity', [App\Http\Controllers\LeadVisitBdmController::class, 'fieldActivity'])->name('bdm.field-activity');
 Route::get('bdm-visit-report', [App\Http\Controllers\LeadVisitBdmController::class, 'report'])->name('bdm.visit-report');
 Route::get('bdm-visit-report/data', [App\Http\Controllers\LeadVisitBdmController::class, 'reportData'])->name('bdm.visit-report.data');
+
+Route::get('fabricator-report', [App\Http\Controllers\FabricatorReportController::class, 'index'])->name('fabricator.report');
+Route::get('fabricator-report/summary', [App\Http\Controllers\FabricatorReportController::class, 'summaryData'])->name('fabricator.report.summary');
+Route::get('fabricator-report/location-data', [App\Http\Controllers\FabricatorReportController::class, 'getHierarchicalData'])->name('fabricator.report.location-data');
+Route::get('fabricator-report/data', [App\Http\Controllers\FabricatorReportController::class, 'data'])->name('fabricator.report.data');
+
+
+Route::get('quotation-report', [App\Http\Controllers\QuotationReportController::class, 'index'])->name('quotation.report');
+Route::get('quotation-report/location-data', [App\Http\Controllers\QuotationReportController::class, 'getHierarchicalData'])->name('quotation.report.location-data');
+Route::get('quotation-report/data', [App\Http\Controllers\QuotationReportController::class, 'data'])->name('quotation.report.data');
+
+Route::get('installation-report', [App\Http\Controllers\InstallationReportController::class, 'index'])->name('installation_site.report');
+Route::get('installation-report/location-data', [App\Http\Controllers\InstallationReportController::class, 'getHierarchicalData'])->name('installation_site.report.location-data');
+Route::get('installation-report/data', [App\Http\Controllers\InstallationReportController::class, 'data'])->name('installation_site.report.data');
+
+
+Route::get('handover-report', [App\Http\Controllers\HandoverReportController::class, 'index'])->name('handover_site.report');
+Route::get('handover-report/location-data', [App\Http\Controllers\HandoverReportController::class, 'getHierarchicalData'])->name('handover_site.report.location-data');
+Route::get('handover-report/data', [App\Http\Controllers\HandoverReportController::class, 'data'])->name('handover_site.report.data');
+
+
+Route::get('bdo-performance-report', [App\Http\Controllers\BdoPerformanceReportController::class, 'index'])->name('bdo_performance.report');
+Route::get('bdo-performance-report/data', [App\Http\Controllers\BdoPerformanceReportController::class, 'data'])->name('bdo_performance.report.data');
+
+
+Route::get('prospect-report', [App\Http\Controllers\ProspectController::class, 'index'])
+    ->name('prospect.report');
+
+Route::get('prospect-report/data', [App\Http\Controllers\ProspectController::class, 'data'])
+    ->name('prospect.report.data');

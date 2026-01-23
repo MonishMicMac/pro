@@ -15,12 +15,13 @@ class FabricatorController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'user_id'         => 'required',
             'shop_name'       => 'required',
             'contact_person'  => 'required',
             'mobile'          => 'required|unique:fabricators,mobile',
             'email'           => 'required',
             'address'         => 'required',
-
+            'zone_id'         => 'required',
             'state_id'        => 'nullable',
             'district_id'     => 'nullable',
             'city_id'         => 'nullable',
@@ -56,6 +57,7 @@ class FabricatorController extends Controller
             'gst'            => $request->gst,
             'address'        => $request->address,
 
+            'zone_id'        => $request->zone_id,
             'state_id'       => $request->state_id,
             'district_id'    => $request->district_id,
             'city_id'        => $request->city_id,
@@ -64,6 +66,8 @@ class FabricatorController extends Controller
 
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
+            
+
             'shop_image' => $imagePath,
             // DEFAULTS
             'is_existing' => '0', // NEW
@@ -71,7 +75,7 @@ class FabricatorController extends Controller
             'action'      => '0',
             'request_date' => now(),
             'approved_date' => now(),
-            'created_by' => auth()->id(),
+            'created_by' => $request->user_id,
         ]);
 
         return response()->json([
@@ -86,6 +90,110 @@ class FabricatorController extends Controller
             ]
         ], 200);
     }
+
+/**
+     * Get list of fabricators based on Zone ID
+     */
+    public function getFabricatorList(Request $request)
+    {
+        // 1. Validate Zone ID
+        $validator = Validator::make($request->all(), [
+            'zone_id' => 'required|exists:zones,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        // 2. Fetch Fabricators for this Zone
+        // Assuming the 'fabricators' table has a 'zone_id' column or is linked geographically.
+        // If not, and you want ALL fabricators regardless of user but filtered by zone logic:
+        $fabricators = Fabricator::where('zone_id', $request->zone_id) // Ensure this column exists in fabricators table
+            ->select(
+                'id', 
+                'shop_name', 
+                'contact_person', 
+                'mobile', 
+                'address', 
+                'latitude', 
+                'longitude', 
+                'shop_image', 
+                'is_existing'
+            )
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 3. Transform the collection
+        $formattedData = $fabricators->map(function ($item) {
+            return [
+                'id'             => $item->id,
+                'shop_name'      => $item->shop_name,
+                'contact_person' => $item->contact_person,
+                'mobile'         => $item->mobile,
+                'address'        => $item->address,
+                'latitude'       => $item->latitude,
+                'longitude'      => $item->longitude,
+                'is_existing'    => $item->is_existing,
+                'shop_image_url' => $item->shop_image 
+                                    ? url('storage/' . $item->shop_image) 
+                                    : null,
+            ];
+        });
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Fabricator list retrieved successfully',
+            'data'    => $formattedData
+        ], 200);
+    }
+
+    /**
+     * Get full details of a specific fabricator
+     * Requires both user_id and fabricator_id for security verification
+     */
+    public function getFabricatorDetails(Request $request)
+    {
+        // 1. Validate Inputs
+        $validator = Validator::make($request->all(), [
+            'user_id'       => 'required|exists:users,id',
+            'fabricator_id' => 'required|exists:fabricators,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        // 2. Fetch specific fabricator
+        // We add 'created_by' check to ensure the user is allowed to view this fabricator
+        $fabricator = Fabricator::where('id', $request->fabricator_id)
+            ->where('created_by', $request->user_id)
+            ->first();
+
+        if (!$fabricator) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Fabricator not found or not assigned to this user'
+            ], 404);
+        }
+
+        // 3. Add Image URL
+        $fabricator->shop_image_url = $fabricator->shop_image 
+            ? url('storage/' . $fabricator->shop_image) 
+            : null;
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Fabricator details retrieved successfully',
+            'data'    => $fabricator
+        ], 200);
+    }
+
 
 
     public function dashboard(Request $request)

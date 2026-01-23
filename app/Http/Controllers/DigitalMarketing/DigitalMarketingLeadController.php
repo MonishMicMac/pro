@@ -47,26 +47,26 @@ class DigitalMarketingLeadController extends Controller
 
             return DataTables::of($data)
                 ->addIndexColumn()
-                ->setRowId(function($row) {
+                ->setRowId(function ($row) {
                     return $row->id; // Explicitly returning the value
                 })
                 ->editColumn('date', function ($row) {
                     return $row->date ? \Carbon\Carbon::parse($row->date)->format('d-m-Y') : '-';
                 })
                 ->editColumn('future_follow_up_date', function ($row) {
-                    if(!$row->future_follow_up_date) return '-';
+                    if (!$row->future_follow_up_date) return '-';
                     $time = $row->future_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->future_follow_up_time)->format('h:i A') : '';
                     return \Carbon\Carbon::parse($row->future_follow_up_date)->format('d-m-Y') . $time;
                 })
                 ->editColumn('potential_follow_up_date', function ($row) {
-                    if(!$row->potential_follow_up_date) return '-';
+                    if (!$row->potential_follow_up_date) return '-';
                     $time = $row->potential_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->potential_follow_up_time)->format('h:i A') : '';
                     return \Carbon\Carbon::parse($row->potential_follow_up_date)->format('d-m-Y') . $time;
                 })
-                ->editColumn('stage', function($row) use ($leadStages) {
+                ->editColumn('stage', function ($row) use ($leadStages) {
                     return $leadStages[$row->stage] ?? '-';
                 })
-                ->editColumn('building_type', function($row) use ($buildingTypes) {
+                ->editColumn('building_type', function ($row) use ($buildingTypes) {
                     return $buildingTypes[$row->building_type] ?? '-';
                 })
                 ->rawColumns(['otp_status'])
@@ -86,7 +86,6 @@ class DigitalMarketingLeadController extends Controller
             'buildingStatuses',
             'customerTypes'
         ));
-
     }
 
     public function store(Request $request)
@@ -114,7 +113,10 @@ class DigitalMarketingLeadController extends Controller
         $lead = DigitalMarketingLead::findOrFail($id);
 
         // Update only the fields provided in the request
-        $lead->update($request->all());
+        $data = $request->all();
+        $data['updated_by'] = Auth::id(); // ✅ logged in user
+
+        $lead->update($data);
         LeadHistory::create([
             'lead_id'           => $lead->id,
             'updated_by'        => Auth::id(),
@@ -135,7 +137,7 @@ class DigitalMarketingLeadController extends Controller
             'rnr_reason'               => $lead->rnr_reason,
         ]);
         if ($request->filled('assigned_to')) {
- 
+
             // Use updateOrCreate to prevent duplicate lead entries if the button is clicked twice
             $mainLead = \App\Models\Lead::updateOrCreate(
                 ['phone_number' => $lead->phone_number], // Unique identifier
@@ -156,7 +158,7 @@ class DigitalMarketingLeadController extends Controller
                     'follow_up_date'    => $lead->future_follow_up_date ?? $lead->potential_follow_up_date,
                 ]
             );
-            
+
             // Link the Digital Lead to the Main Lead
             $lead->update(['lead_id' => $mainLead->id]);
         }
@@ -194,8 +196,14 @@ class DigitalMarketingLeadController extends Controller
         $users         = User::pluck('name', 'id');
 
         return view('marketing.leads.history', compact(
-            'lead', 'history', 'buildingTypes', 'leadStages',
-            'zones', 'buildingStatuses', 'customerTypes', 'users'
+            'lead',
+            'history',
+            'buildingTypes',
+            'leadStages',
+            'zones',
+            'buildingStatuses',
+            'customerTypes',
+            'users'
         ));
     }
 }

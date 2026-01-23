@@ -13,6 +13,7 @@ use App\Models\City;
 use App\Models\Area;
 use App\Models\Pincodes;
 use App\Models\Brand;
+use App\Models\Zone;
 use Illuminate\Support\Facades\Hash;
 
 class FabricatorController extends Controller
@@ -75,8 +76,9 @@ class FabricatorController extends Controller
 
         if ($request->ajax()) {
 
-            $query = Fabricator::with(['state', 'district', 'city', 'pincode', 'creator'])
+            $query = Fabricator::with(['state', 'district', 'city', 'pincode', 'creator', 'zone'])
                 ->where('action', '0');
+
 
             if ($request->state) {
                 $query->where('state_id', $request->state);
@@ -93,14 +95,16 @@ class FabricatorController extends Controller
                 ->addColumn('pincode', fn($r) => $r->pincode->pincode ?? '-')
                 ->addColumn('brands', fn($r) => $r->brands->pluck('name')->implode(', '))
                 ->addColumn('created_by', fn($r) => $r->creator->name ?? '-')
+                ->addColumn('zone', fn($r) => $r->zone->name ?? '-')
                 ->make(true);
         }
 
 
         $states = State::where('action', '0')->get();
         $brands = Brand::where('action', '0')->get();
+        $zones  = Zone::where('action', '0')->get();
 
-        return view('masters.fabricators.index', compact('states', 'brands'));
+        return view('masters.fabricators.index', compact('states', 'brands', 'zones'));
     }
 
     /**
@@ -128,6 +132,7 @@ class FabricatorController extends Controller
             'sub_segment' => $request->sub_segment,
 
             // LOCATION
+            'zone_id' => $request->zone_id,
             'state_id' => $request->state_id,
             'district_id' => $request->district_id,
             'city_id' => $request->city_id,

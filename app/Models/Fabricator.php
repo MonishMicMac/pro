@@ -11,6 +11,7 @@ use App\Models\City;
 use App\Models\Area;
 use App\Models\Pincodes;
 use App\Models\Brand;
+use App\Models\Zone;
 use \App\Models\User;
 use \App\Models\FabricatorRequest;
 use Laravel\Sanctum\HasApiTokens;
@@ -25,6 +26,7 @@ class Fabricator extends Authenticatable
         'email',
 
         // LOCATION
+        'zone_id',
         'state_id',
         'district_id',
         'city_id',
@@ -113,5 +115,9 @@ class Fabricator extends Authenticatable
     public function requests()
     {
         return $this->hasMany(FabricatorRequest::class);
+    }
+    public function zone()
+    {
+        return $this->belongsTo(Zone::class, 'zone_id');
     }
 }

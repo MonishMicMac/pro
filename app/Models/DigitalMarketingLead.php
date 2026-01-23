@@ -1,8 +1,10 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
 
 class DigitalMarketingLead extends Model
 {
@@ -10,13 +12,47 @@ class DigitalMarketingLead extends Model
     protected $table = 'digital_marketing_leads';
 
     protected $fillable = [
-        'id', 'date', 'name', 'phone_number', 'email', 'city', 'otp_status',
-        'color_preference', 'source', 'campaign_name', 'ad_name',
-        'keyword', 'campaign_id', 'ad_set_id', 'ad_id',
-        'ad_set_name', 'form_id', 'referred_from', 'notes', 'enquiry_count',
-        'stage','customer_type','colour','total_order_sqft','building_status','building_type',
-        'remarks','assigned_to','zone','future_follow_up_date','potential_follow_up_date','future_follow_up_time','potential_follow_up_time','disqualified_reason','rnr_reason',
-        'lead_id','transfered_by','transfered_date','before_transfer_user','transfter_remarks'
+        'id',
+        'date',
+        'name',
+        'phone_number',
+        'email',
+        'city',
+        'otp_status',
+        'color_preference',
+        'source',
+        'campaign_name',
+        'ad_name',
+        'keyword',
+        'campaign_id',
+        'ad_set_id',
+        'ad_id',
+        'ad_set_name',
+        'form_id',
+        'referred_from',
+        'notes',
+        'enquiry_count',
+        'stage',
+        'customer_type',
+        'colour',
+        'total_order_sqft',
+        'building_status',
+        'building_type',
+        'remarks',
+        'assigned_to',
+        'zone',
+        'future_follow_up_date',
+        'potential_follow_up_date',
+        'future_follow_up_time',
+        'potential_follow_up_time',
+        'disqualified_reason',
+        'rnr_reason',
+        'lead_id',
+        'transfered_by',
+        'transfered_date',
+        'before_transfer_user',
+        'transfter_remarks',
+        'updated_by'
     ];
 
     public function assignedUser(): BelongsTo
@@ -43,5 +79,10 @@ class DigitalMarketingLead extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class, 'lead_id');
+    }
+
+    public function telecaller()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

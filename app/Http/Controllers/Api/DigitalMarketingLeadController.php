@@ -20,13 +20,13 @@ public function store(Request $request): JsonResponse
         ], 422);
     }
 
-    // Validate Phone Number (Required)
     if (empty($request->phone_number)) {
         return response()->json([
             'status' => 'error',
             'message' => 'The phone number field is required.'
         ], 422);
     }
+
 
     // Validate Phone Number Format (10 digits, starting with 6-9)
     // pattern: ^ starts with, [6-9] first digit, [0-9]{9} next 9 digits, $ end
@@ -65,8 +65,7 @@ public function store(Request $request): JsonResponse
     return response()->json([
         'status' => 'success',
         'message' => 'New lead recorded successfully',
-        'enquiry_status' => 'new',
-        'data' => $newLead
+        'enquiry_status' => 'new'
     ], 200);
 }
 }

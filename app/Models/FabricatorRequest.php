@@ -25,7 +25,7 @@ class FabricatorRequest extends Model
 
     public function fabricator()
     {
-        return $this->belongsTo(User::class, 'fabricator_id');
+        return $this->belongsTo(Fabricator::class, 'fabricator_id');
     }
 
 }

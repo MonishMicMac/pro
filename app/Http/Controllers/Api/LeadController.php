@@ -136,7 +136,7 @@ public function storeSchedule(Request $request)
     // 1. Validate the structure (Top level + Visits array)
     $validator = Validator::make($request->all(), [
         'user_id'        => 'required|exists:users,id',
-        'food_allowance' => 'required|in:1,2',
+        'food_allowance' => 'required|in:1,2,3,4',
         'schedule_date'  => [
             'required',
             'date_format:Y-m-d',

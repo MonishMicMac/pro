@@ -9,19 +9,35 @@ use App\Models\Zone;
 use App\Models\State;
 use App\Models\District;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class AccountController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        // 1. Validate the Zone ID
+        $validator = Validator::make($request->all(), [
+            'zone_id' => 'required|exists:zones,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false, 
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        // 2. Fetch Accounts filtered by Zone ID
         $accounts = Account::with(['zone', 'state', 'district', 'accountType'])
-            ->where('action', '0')
+            ->where('action', '0') // Active accounts
+            ->where('zone_id', $request->zone_id) // <--- Added Filter
             ->latest()
             ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $accounts
+            'count'   => count($accounts),
+            'data'    => $accounts
         ]);
     }
 

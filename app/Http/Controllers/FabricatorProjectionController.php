@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Lead;
 
 class FabricatorProjectionController extends Controller
 {
@@ -25,6 +26,8 @@ class FabricatorProjectionController extends Controller
         
         return view('fabricator_projections.index', compact('fabricators', 'users', 'zones'));
     }
+
+
 
     public function getData(Request $request)
     {
@@ -51,7 +54,7 @@ class FabricatorProjectionController extends Controller
         }
 
         if ($request->filled('fabricator_id')) {
-            $query->where('fabricator_id', $request->fabricator_id);
+            $query->where('fabricator_projections.fabricator_id', $request->fabricator_id);
         }
         
         if ($request->filled('user_id')) {
@@ -70,6 +73,42 @@ class FabricatorProjectionController extends Controller
             ->addColumn('user_name', function($row) {
                 return $row->user->name ?? 'N/A';
             })
+            ->addColumn('actual_tonnage', function($row) {
+                // Calculation Logic
+                $month = $row->projection_month; // YYYY-MM
+                $totalSqft = Lead::where('fabricator_id', $row->fabricator_id)
+                    ->where('lead_stage', 5) // Won
+                    // Filter by month of won_date
+                    ->where('won_date', 'like', "$month%")
+                    ->sum('total_required_area_sqft');
+                
+                // Conversion Factor: 0.003 Tons per Sqft (Approx)
+                // Adjust this factor as needed
+                $tons = $totalSqft * 0.003; 
+                
+                return number_format($tons, 2);
+            })
+            ->addColumn('achievement_percent', function($row) {
+                // Re-calculate or pass from actual_tonnage if possible, simpler to re-query or use attribute if model appended
+                // For optimal performance, should eager load or join, but basic implementation first.
+                
+                $month = $row->projection_month;
+                $totalSqft = Lead::where('fabricator_id', $row->fabricator_id)
+                    ->where('lead_stage', 5)
+                    ->where('won_date', 'like', "$month%")
+                    ->sum('total_required_area_sqft');
+                
+                $actualTons = $totalSqft * 0.003;
+                $projectedTons = $row->sale_projection_tonnage > 0 ? $row->sale_projection_tonnage : 1; // Avoid div/0
+                
+                $percent = ($actualTons / $projectedTons) * 100;
+                
+                $color = 'text-red-500';
+                if($percent >= 100) $color = 'text-green-600';
+                elseif($percent >= 50) $color = 'text-orange-500';
+
+                return '<span class="font-bold '.$color.'">'.number_format($percent, 1).'%</span>';
+            })
             ->addColumn('action', function ($row) {
                 $btn = '<div class="flex gap-2">';
                 $btn .= '<button onclick="editProjection('.$row->id.')" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all">
@@ -81,7 +120,7 @@ class FabricatorProjectionController extends Controller
                 $btn .= '</div>';
                 return $btn;
             })
-            ->rawColumns(['action'])
+            ->rawColumns(['action', 'achievement_percent'])
             ->make(true);
     }
 

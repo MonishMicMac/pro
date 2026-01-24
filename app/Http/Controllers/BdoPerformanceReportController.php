@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Models\Lead;
 use App\Models\LeadVisit;
 use App\Models\City;
+use App\Models\State;
+use App\Models\District;
 use App\Models\UserMapping;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
@@ -20,6 +22,42 @@ class BdoPerformanceReportController extends Controller
         return view('reports.bdo_performance_report', compact('zones'));
     }
 
+
+    public function getHierarchicalData(Request $request)
+    {
+        $type = $request->type;
+        $id = $request->id;
+
+        switch ($type) {
+            case 'zone':
+                return response()->json([
+                    'states' => State::where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                    'zsms'   => User::role('ZSM')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                ]);
+            case 'state':
+                 return response()->json([
+                    'districts' => District::where('state_id', $id)->orderBy('district_name')->get(['id', 'district_name as name']),
+                 ]);
+            case 'district':
+                 return response()->json([
+                    'cities' => City::where('district_id', $id)->orderBy('city_name')->get(['id', 'city_name as name']),
+                 ]);
+            case 'zsm':
+                $bdmIds = UserMapping::where('zsm_id', $id)->distinct()->pluck('bdm_id');
+                return response()->json([
+                    'bdms' => User::whereIn('id', $bdmIds)->orderBy('name')->get(['id', 'name']),
+                ]);
+            case 'bdm':
+                 // Optional: If you want to filter down to specific BDOs
+                $bdoIds = UserMapping::where('bdm_id', $id)->distinct()->pluck('bdo_id');
+                return response()->json([
+                    'bdos' => User::whereIn('id', $bdoIds)->orderBy('name')->get(['id', 'name']),
+                ]);
+            default:
+                return response()->json([]);
+        }
+    }
+
     public function data(Request $request)
     {
         $query = User::whereHas('roles', function($q) {
@@ -28,6 +66,31 @@ class BdoPerformanceReportController extends Controller
 
         if ($request->has('zone_id') && $request->zone_id) {
             $query->where('zone_id', $request->zone_id);
+        }
+        if ($request->has('state_id') && $request->state_id) {
+            $query->where('state_id', $request->state_id);
+        }
+        if ($request->has('district_id') && $request->district_id) {
+            $query->where('district_id', $request->district_id);
+        }
+        if ($request->has('city_id') && $request->city_id) {
+            $query->where('city_id', $request->city_id);
+        }
+
+        if ($request->has('zsm_id') && $request->zsm_id) {
+            // Get BDOs under this ZSM via UserMapping
+            $bdoIds = UserMapping::where('zsm_id', $request->zsm_id)->distinct()->pluck('bdo_id');
+            $query->whereIn('id', $bdoIds);
+        }
+
+        if ($request->has('bdm_id') && $request->bdm_id) {
+             // Get BDOs under this BDM via UserMapping
+            $bdoIds = UserMapping::where('bdm_id', $request->bdm_id)->distinct()->pluck('bdo_id');
+            $query->whereIn('id', $bdoIds);
+        }
+
+        if ($request->has('bdo_id') && $request->bdo_id) {
+            $query->where('id', $request->bdo_id);
         }
 
         $fromDate = $request->input('from_date', date('Y-m-01'));
@@ -92,23 +155,31 @@ class BdoPerformanceReportController extends Controller
                     ->whereBetween('updated_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59'])
                     ->sum('total_required_area_sqft');
             })
-            ->addColumn('won_quote', function ($user) use ($fromDate, $toDate) {
-                return Lead::where('user_id', $user->id)
-                    ->where('lead_stage', '5')
-                    ->whereBetween('won_date', [$fromDate, $toDate])
-                    ->count();
-            })
             ->addColumn('won_white', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
                     ->where('lead_stage', '5')
-                    ->where('color_preference', 'White') // Verify logic
                     ->whereBetween('won_date', [$fromDate, $toDate])
-                    ->count();
+                    ->with('measurements')
+                    ->get()
+                    ->flatMap(function ($lead) {
+                        return $lead->measurements->where('color', 'White');
+                    })
+                    ->sum('sqft');
             })
             ->addColumn('won_laminate', function ($user) use ($fromDate, $toDate) {
                 return Lead::where('user_id', $user->id)
                     ->where('lead_stage', '5')
-                    ->where('color_preference', 'Laminate') // Verify logic
+                    ->whereBetween('won_date', [$fromDate, $toDate])
+                    ->with('measurements')
+                    ->get()
+                    ->flatMap(function ($lead) {
+                        return $lead->measurements->where('color', '!=', 'White');
+                    })
+                    ->sum('sqft');
+            })
+            ->addColumn('won_quote', function ($user) use ($fromDate, $toDate) {
+                return Lead::where('user_id', $user->id)
+                    ->where('lead_stage', '5')
                     ->whereBetween('won_date', [$fromDate, $toDate])
                     ->count();
             })

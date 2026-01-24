@@ -29,7 +29,9 @@ class LeadVisit extends Model
         'bdm_id', 
         'bdo_id', 
         'image', 
-        'action','lead_stage'
+        'action',
+        'vehicle_type',
+        'lead_stage'
     ];
 
     public function user()
@@ -56,5 +58,10 @@ class LeadVisit extends Model
     {
     // This tells Laravel: "bdo_id" in this table belongs to a "User"
     return $this->belongsTo(User::class, 'bdo_id');
+    }
+    public function bdm()
+    {
+    // Assuming 'bdm_id' is the column in lead_visits table
+    return $this->belongsTo(User::class, 'bdm_id'); 
     }
 }

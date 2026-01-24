@@ -40,6 +40,7 @@ class DigitalMarketingLead extends Model
         'building_type',
         'remarks',
         'assigned_to',
+        'assigned_at',
         'zone',
         'future_follow_up_date',
         'potential_follow_up_date',
@@ -52,6 +53,7 @@ class DigitalMarketingLead extends Model
         'transfered_date',
         'before_transfer_user',
         'transfter_remarks',
+        'transftered_lead_using_brand',
         'updated_by'
     ];
 

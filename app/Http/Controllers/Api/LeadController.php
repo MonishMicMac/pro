@@ -12,6 +12,8 @@ use App\Models\FabricatorRequest;
 use App\Models\LeadVisit;
 use App\Models\MeasurementDetail;
 use App\Helpers\LeadHelper;
+use App\Models\DigitalMarketingLead;
+
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -24,10 +26,10 @@ public function storeSiteIdentification(Request $request)
     $validator = Validator::make($request->all(), [
         'user_id'          => 'required|exists:users,id',
         'city'             => 'required|string|max:255',
-        'site_owner_name'  => 'required|string|max:255',
-        'site_owner_mobile_number'  => 'required|string|max:255',
-        'deciding_authority'  => 'required|string|max:255',
-        'deciding_authority_mobile_number'  => 'required|string|max:255',
+        'site_owner_name'  => 'nullable|string|max:255',
+        'site_owner_mobile_number'  => 'nullable|string|max:255',
+        'deciding_authority'  => 'nullable|string|max:255',
+        'deciding_authority_mobile_number'  => 'nullable|string|max:255',
         'site_area'        => 'required|string|max:255',
         'site_address'     => 'required|string',
         'latitude'         => 'required|numeric|between:-90,90',
@@ -125,12 +127,15 @@ public function getLeadsByUser(Request $request)
     ], 200);
 }
 
+/**
+ * Create a Visit Schedule BDO
+ */
 public function storeSchedule(Request $request)
 {
     $today = Carbon::today()->format('Y-m-d');
     $maxDate = Carbon::today()->addDays(25)->format('Y-m-d');
 
-    // 1. Strict Validation for BDO Input
+    // 1. Validate the structure (Top level + Visits array)
     $validator = Validator::make($request->all(), [
         'user_id'        => 'required|exists:users,id',
         'food_allowance' => 'required|in:1,2,3,4',
@@ -140,16 +145,12 @@ public function storeSchedule(Request $request)
             'after_or_equal:' . $today,
             'before_or_equal:' . $maxDate
         ],
-        'visits'                  => 'required|array|min:1',
-        'visits.*.visit_type'     => 'required|in:1,2,3',
-        
-        // Conditional validation: Ensure the correct ID is present for the specific type
-        'visits.*.account_id'     => 'required_if:visits.*.visit_type,1',
-        'visits.*.lead_id'        => 'required_if:visits.*.visit_type,2',
-        'visits.*.fabricator_id'  => 'required_if:visits.*.visit_type,3',
+        'visits'         => 'required|array|min:1',
+        'visits.*.visit_type' => 'required|in:1,2,3',
+        'visits.*.work_type'  => 'required|in:Individual,Joint Work',
     ], [
         'schedule_date.before_or_equal' => 'You can only schedule visits up to 25 days in advance.',
-        'visits.*.account_id.required_if' => 'Account ID is required for Visit Type 1',
+        'schedule_date.after_or_equal'  => 'The schedule date cannot be in the past.'
     ]);
 
     if ($validator->fails()) {
@@ -162,30 +163,30 @@ public function storeSchedule(Request $request)
     try {
         $createdVisits = [];
         
-        foreach ($request->visits as $visitItem) {
+        // Loop through each visit in the JSON array
+        foreach ($request->visits as $index => $visitItem) {
             
             $visit = LeadVisit::create([
-                // Who is creating/owning this record
                 'user_id'        => $request->user_id,
-                
-                // Since this is BDO only, they are the BDO
-                'bdo_id'         => $request->user_id,
-                'bdm_id'         => null, // Manager not involved in this input
-                
-                // Defaults
                 'type'           => 'planned',
-                'work_type'      => 'Individual', // Default for BDO self-schedule
-                'action'         => '0',
                 
-                // Top Level Inputs
+                // Mapping IDs based on visit_type
+                'account_id'     => ($visitItem['visit_type'] == 1) ? ($visitItem['account_id'] ?? null) : null,
+                'lead_id'        => ($visitItem['visit_type'] == 2) ? ($visitItem['lead_id'] ?? null) : null,
+                'fabricator_id'  => ($visitItem['visit_type'] == 3) ? ($visitItem['fabricator_id'] ?? null) : null,
+                
+                'visit_type'     => $visitItem['visit_type'],
+                'work_type'      => $visitItem['work_type'] ?? 'Individual',
+                
+                // Use user_id as BDM if it's the manager creating it
+                'bdm_id'         => $request->user_id, 
+                'bdo_id'         => $visitItem['bdo_id'] ?? null,
+                
+                // Shared values from the top level
                 'food_allowance' => $request->food_allowance,
                 'schedule_date'  => $request->schedule_date,
                 
-                // Dynamic ID Assignment based on Visit Type
-                'visit_type'     => $visitItem['visit_type'],
-                'account_id'     => ($visitItem['visit_type'] == 1) ? $visitItem['account_id'] : null,
-                'lead_id'        => ($visitItem['visit_type'] == 2) ? $visitItem['lead_id'] : null,
-                'fabricator_id'  => ($visitItem['visit_type'] == 3) ? $visitItem['fabricator_id'] : null,
+                'action'         => '0', 
             ]);
 
             $createdVisits[] = $visit;
@@ -193,7 +194,7 @@ public function storeSchedule(Request $request)
 
         return response()->json([
             'status'  => true,
-            'message' => 'Schedule created successfully',
+            'message' => count($createdVisits) . ' visits scheduled successfully',
             'data'    => $createdVisits
         ], 201);
 
@@ -209,9 +210,6 @@ public function storeSchedule(Request $request)
 /**
  * Get Today's Schedule List for a User
  */
-/**
- * Get Today's Schedule List for a User (BDO)
- */
 public function getScheduleList(Request $request)
 {
     $validator = Validator::make($request->all(), [
@@ -225,75 +223,20 @@ public function getScheduleList(Request $request)
         ], 422);
     }
 
+    // 1. Define today's date
     $today = Carbon::today()->toDateString();
 
-    // 1. Fetch records with relationships to get names/roles
-    $schedules = LeadVisit::with(['lead', 'account', 'fabricator', 'user', 'bdo'])
-        ->where('user_id', $request->user_id)
+    // 2. Fetch only today's records for this user
+    $schedules = LeadVisit::where('user_id', $request->user_id)
         ->whereDate('schedule_date', $today)
         ->orderBy('created_at', 'desc')
         ->get();
 
-    // 2. Initialize the response structure
-    $response = [
-        'leads'       => [],
-        'accounts'    => [],
-        'fabricators' => []
-    ];
-
-    // 3. Loop and Format Data
-    foreach ($schedules as $row) {
-        
-        $data = [
-            'visit_id'        => $row->id,
-            'user_id'         => $row->user_id,
-            'user_role'       => $row->user ? $row->user->designation : null, 
-            'type'            => $row->type,
-            
-            // IDs
-            'lead_id'         => $row->lead_id,
-            'account_id'      => $row->account_id,
-            'fabricator_id'   => $row->fabricator_id,
-            
-            // Names (Resolved from relationships)
-            'lead_name'       => $row->lead ? $row->lead->name : null,
-            'account_name'    => $row->account ? $row->account->name : null,
-            'fabricator_name' => $row->fabricator ? $row->fabricator->shop_name : null,
-            
-            'visit_type'      => $row->visit_type,
-            'schedule_date'   => $row->schedule_date,
-            'visit_date'      => $row->visit_date,
-            'intime'          => $row->intime,
-            'outtime'         => $row->outtime,
-            'work_type'       => $row->work_type,
-            'remarks'         => $row->remarks,
-            'vehicle_type'    => $row->vehicle_type,
-            
-            // Coordinates
-            'in_lat'          => $row->inlat,
-            'in_long'         => $row->inlong,
-            
-            'created_at'      => $row->created_at,
-            
-            // BDO Details (If self-assigned, this is the user)
-            'bdo_id'          => $row->bdo_id,
-            'bdo_name'        => $row->bdo ? $row->bdo->name : null,
-        ];
-
-        // 4. Segregate based on visit_type
-        if ($row->visit_type == '1') { // Account
-            $response['accounts'][] = $data;
-        } elseif ($row->visit_type == '2') { // Lead
-            $response['leads'][] = $data;
-        } elseif ($row->visit_type == '3') { // Fabricator
-            $response['fabricators'][] = $data;
-        }
-    }
-
     return response()->json([
         'status'  => true,
         'message' => 'Today schedule list retrieved successfully',
-        'data'    => $response
+        'count'   => $schedules->count(),
+        'data'    => $schedules
     ], 200);
 }
 
@@ -344,248 +287,279 @@ public function leadCheckIn(Request $request)
     }
 }
 
-public function leadCheckOut(Request $request)
-{
-    // 1. Base Validation Rules
-    $rules = [
-        'visit_id'    => 'required|exists:lead_visits,id',
-        'outlat'      => 'required',
-        'outlong'     => 'required',
-        'remarks'     => 'nullable|string',
-        'action_type' => 'required|string', 
-    ];
+ public function leadCheckOut(Request $request)
+    {
+        // 1. Base Validation Rules
+        $rules = [
+            'visit_id'    => 'required|exists:lead_visits,id',
+            'outlat'      => 'required',
+            'outlong'     => 'required',
+            'remarks'     => 'nullable|string',
+            'action_type' => 'required|string', 
+        ];
 
-    // 2. Add Dynamic Rules based on action_type
-    if ($request->action_type == 'intro_stage') {
-        $rules['customer_name']    = 'required|string|max:255';
-        $rules['contact_number']   = 'required|string|max:20';
-        $rules['customer_type']    = 'required|string';
-        $rules['building_stage']   = 'required|string';
-        $rules['no_of_window']     = 'required|integer';
-        $rules['lead_temperature'] = 'required|in:Hot,Warm,Cold';
-        $rules['meeting_type']     = 'required|in:Site Visit,Office,Others';
-    }
-    elseif ($request->action_type == 'followup_meeting') {
-        $rules['total_required_area_sqft'] = 'required|numeric|min:1';
-        $rules['current_building_stage']   = 'required|string';
-    }
-    elseif ($request->action_type == 'quotation_pending_with_fabricator') {
-        $rules['fabricator_id'] = 'required|exists:users,id';
-        $rules['notes']         = 'nullable|string';
-        $rules['priority']      = 'required|integer'; 
-
-        $rules['measurements'] = 'required|array|min:1';
-        $rules['measurements.*.product']     = 'required|string';
-        $rules['measurements.*.width_val']   = 'required|numeric';
-        $rules['measurements.*.width_unit']  = 'required|in:mm,ft,inch';
-        $rules['measurements.*.height_val']  = 'required|numeric';
-        $rules['measurements.*.height_unit'] = 'required|in:mm,ft,inch';
-        $rules['measurements.*.qty']         = 'required|integer|min:1';
-    }
-    elseif ($request->action_type == 'quotationsent_followup') {
-        $rules['follow_up_date'] = 'required|date|after_or_equal:today';
-    }
-    elseif ($request->action_type == 'won') {
-        $rules['per_sq_ft_rate']             = 'required|numeric';
-        $rules['expected_installation_date'] = 'required|date';
-        $rules['advance_received']           = 'required|numeric';
-        $rules['final_quotation_pdf']        = 'nullable|mimes:pdf|max:5120';
-    }
-    elseif ($request->action_type == 'lost') {
-        $rules['lost_type']  = 'required|string';
-        $rules['competitor'] = 'nullable|string';
-    }
-    elseif ($request->action_type == 'site_handover') {
-        $rules['installed_date']      = 'required|date';
-        $rules['handovered_date']     = 'required|date';
-        $rules['final_site_photos']   = 'required|array|min:1';
-        $rules['final_site_photos.*'] = 'image|mimes:jpeg,png,jpg|max:5120';
-    }
-
-    // 3. Execute Validation
-    $validator = Validator::make($request->all(), $rules);
-
-    if ($validator->fails()) {
-        return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
-    }
-
-    try {
-        DB::beginTransaction();
-
-        // 4. Find the Visit and Lead
-        $visit = LeadVisit::find($request->visit_id);
-        $lead  = Lead::find($visit->lead_id);
-
-        if (!$lead) {
-            throw new \Exception("Lead not found for this visit.");
+        // 2. Add Dynamic Rules based on action_type
+        if ($request->action_type == 'intro_stage') {
+            $rules['customer_name']    = 'required|string|max:255';
+            $rules['contact_number']   = 'required|string|max:20';
+            $rules['customer_type']    = 'required|string';
+            $rules['building_stage']   = 'required|string';
+            $rules['no_of_window']     = 'required|integer';
+            $rules['lead_temperature'] = 'required|in:Hot,Warm,Cold';
+            $rules['meeting_type']     = 'required|in:Site Visit,Office,Others';
+        }
+        elseif ($request->action_type == 'followup_meeting') {
+            $rules['total_required_area_sqft'] = 'required|numeric|min:1';
+            $rules['current_building_stage']   = 'required|string';
+            $rules['brand_id']                 = 'required|integer'; 
+        }
+        elseif ($request->action_type == 'cross_selling') {
+            $rules['brand_id'] = 'required|integer'; 
+        }
+        elseif ($request->action_type == 'quotation_pending_with_fabricator') {
+            $rules['fabricator_id'] = 'required|exists:users,id';
+            $rules['notes']         = 'nullable|string';
+            $rules['priority']      = 'required|integer'; 
+            $rules['measurements'] = 'required|array|min:1';
+            $rules['measurements.*.product']     = 'required|string';
+            $rules['measurements.*.width_val']   = 'required|numeric';
+            $rules['measurements.*.width_unit']  = 'required|in:mm,ft,inch';
+            $rules['measurements.*.height_val']  = 'required|numeric';
+            $rules['measurements.*.height_unit'] = 'required|in:mm,ft,inch';
+            $rules['measurements.*.qty']         = 'required|integer|min:1';
+        }
+        elseif ($request->action_type == 'quotationsent_followup') {
+            $rules['follow_up_date'] = 'required|date|after_or_equal:today';
+        }
+        elseif ($request->action_type == 'won') {
+            $rules['per_sq_ft_rate']             = 'required|numeric';
+            $rules['expected_installation_date'] = 'required|date';
+            $rules['advance_received']           = 'required|numeric';
+            $rules['final_quotation_pdf']        = 'nullable|mimes:pdf|max:5120';
+        }
+        elseif ($request->action_type == 'lost') {
+            $rules['lost_type']  = 'required|string';
+            $rules['competitor'] = 'nullable|string';
+        }
+        elseif ($request->action_type == 'site_handover') {
+            $rules['installed_date']      = 'required|date';
+            $rules['handovered_date']     = 'required|date';
+            $rules['final_site_photos']   = 'required|array|min:1';
+            $rules['final_site_photos.*'] = 'image|mimes:jpeg,png,jpg|max:5120';
         }
 
-        // --- STAGE PROTECTION LOGIC (No Go Back) ---
-        // Using the logic from your snippet: won=5, handover=6, lost=7
-        $finalStages = [5, 6, 7]; 
-        if (in_array($lead->lead_stage, $finalStages)) {
-            $allowedTransition = false;
-            // Allow transition to handover (6) only if currently Won (5)
-            if ($lead->lead_stage == 5 && $request->action_type == 'site_handover') {
-                $allowedTransition = true;
-            }
-            if (!$allowedTransition) {
-                return response()->json([
-                    'status'  => false,
-                    'message' => 'Action Denied: This lead is already in "' . $lead->status . '" stage.'
-                ], 403);
-            }
+        // 3. Execute Validation
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
         }
-        // -------------------------------------------
 
+        try {
+            DB::beginTransaction();
 
-        // 5. Process Logic Based on Action Type
-        switch ($request->action_type) {
+            // 4. Find the Visit and Lead
+            $visit = LeadVisit::find($request->visit_id);
 
-            case 'intro_stage':
-                $lead->update([
-                    'name'             => $request->customer_name,
-                    'phone_number'     => $request->contact_number,
-                    'customer_type'    => $request->customer_type,
-                    'building_status'  => $request->building_stage,
-                    'no_of_windows'    => $request->no_of_window,    
-                    'lead_temperature' => $request->lead_temperature, 
-                    'meeting_type'     => $request->meeting_type,     
-                    'lead_stage'       => 1, 
-                ]);
-                break;
+            // Safety Check: If visit is invalid, stop here (prevents 500 error on next line)
+            if (!$visit) {
+                return response()->json(['status' => false, 'message' => 'Visit ID not found'], 404);
+            }
 
-            case 'followup_meeting':
-                $lead->update([
-                    'total_required_area_sqft' => $request->total_required_area_sqft,
-                    'building_status'          => $request->current_building_stage,
-                    'lead_stage'               => 2, 
-                ]);
-                break;
+            $lead = Lead::find($visit->lead_id);
 
-            case 'quotation_pending_with_fabricator':
+            if (!$lead) {
+                throw new \Exception("Lead not found for this visit.");
+            }
+
+            // --- STAGE PROTECTION LOGIC ---
+            // CAUTION: If the lead is already "Won" or "Lost", this block will 
+            // PREVENT the cross_selling code from running.
+            $finalStages = [5, 6, 7]; 
+            if (in_array($lead->lead_stage, $finalStages)) {
+                $allowedTransition = false;
+                if ($lead->lead_stage == 5 && $request->action_type == 'site_handover') {
+                    $allowedTransition = true;
+                }
                 
-                $totalCalculatedSqft = 0;
+                // Allow cross-selling even if lead is closed? If yes, uncomment line below:
+                // if ($request->action_type == 'cross_selling') $allowedTransition = true;
 
-                // A. Loop through measurements
-                foreach ($request->measurements as $item) {
-                    $wInFeet = $this->convertToFeet($item['width_val'], $item['width_unit']);
-                    $hInFeet = $this->convertToFeet($item['height_val'], $item['height_unit']);
-                    $calculatedSqft = $wInFeet * $hInFeet * $item['qty'];
+                if (!$allowedTransition) {
+                    return response()->json([
+                        'status'  => false,
+                        'message' => 'Action Denied: This lead is already in "' . ($lead->status ?? 'Closed') . '" stage.'
+                    ], 403);
+                }
+            }
+            // ------------------------------
 
-                    $totalCalculatedSqft += $calculatedSqft;
+            // 5. Process Logic Based on Action Type
+            switch ($request->action_type) {
 
-                    MeasurementDetail::create([
-                        'lead_id'     => $lead->id,
-                        'user_id'     => $lead->user_id,
-                        'product'     => $item['product'],
-                        'design_code' => $item['design_code'] ?? null,
-                        'area'        => $item['area'] ?? null,
-                        'width_val'   => $item['width_val'],
-                        'width_unit'  => $item['width_unit'],
-                        'height_val'  => $item['height_val'],
-                        'height_unit' => $item['height_unit'],
-                        'qty'         => $item['qty'],
-                        'color'       => $item['color'] ?? null,
-                        'sqft'        => round($calculatedSqft, 2),
-                        'notes'       => $item['notes'] ?? null,
+                case 'intro_stage':
+                    $lead->update([
+                        'name'             => $request->customer_name,
+                        'phone_number'     => $request->contact_number,
+                        'customer_type'    => $request->customer_type,
+                        'building_status'  => $request->building_stage,
+                        'no_of_windows'    => $request->no_of_window,    
+                        'lead_temperature' => $request->lead_temperature, 
+                        'meeting_type'     => $request->meeting_type,     
+                        'lead_stage'       => 1, 
                     ]);
-                }
+                    break;
 
-                // B. Create Fabricator Request
-                FabricatorRequest::create([
-                    'lead_id'       => $lead->id,
-                    'fabricator_id' => $request->fabricator_id,
-                    'approx_sqft'   => round($totalCalculatedSqft, 2),
-                    'notes'         => $request->notes,
-                ]);
+                case 'followup_meeting':
+                    $lead->update([
+                        'total_required_area_sqft' => $request->total_required_area_sqft,
+                        'building_status'          => $request->current_building_stage,
+                        'lead_stage'               => 2,
+                        'brand_id'                 => $request->brand_id, 
+                    ]);
+                    break;
 
-                // C. Update Lead
-                $lead->update([
-                    'lead_stage' => 3, 
-                    'priority'   => $request->priority
-                ]); 
-                break;
+                case 'cross_selling':
+                    // Find the existing Digital Marketing Lead by lead_id
+                    $digitalLead = DigitalMarketingLead::where('lead_id', $lead->id)->first();
 
-            case 'quotationsent_followup':
-                $lead->update([
-                    'follow_up_date' => $request->follow_up_date,
-                ]);
-                break;
+                 
+                    if ($digitalLead) {
+                        $digitalLead->update([
+                            'stage'                        => '0',
+                            'transfered_by'                => $lead->user_id, // Ensure lead table has user_id
+                            'transfered_date'              => Carbon::now(),
+                            'transfter_remarks'            => $request->remarks,
+                            'transftered_lead_using_brand' => $request->brand_id
+                        ]);
+                    } else {
+                        // Optional: Log if no digital lead was found to update
+                        // Log::warning("Cross selling attempted on Lead {$lead->id} but no DigitalLead record found.");
+                    }
+                    break;
 
-            case 'won':
-                $pdfPath = $lead->final_quotation_pdf;
-                if ($request->hasFile('final_quotation_pdf')) {
-                    $pdfPath = $request->file('final_quotation_pdf')->store('final_quotes', 'public');
-                }
-                $lead->update([
-                    'lead_stage'                 => 5,
-                    'rate_per_sqft'              => $request->per_sq_ft_rate,
-                    'won_date'                   => Carbon::today(),
-                    'expected_installation_date' => $request->expected_installation_date,
-                    'advance_received'           => $request->advance_received,
-                    'final_quotation_pdf'        => $pdfPath,
-                    'status'                     => 'Won'
-                ]);
-                break;
+                case 'quotation_pending_with_fabricator':
+                    $totalCalculatedSqft = 0;
+                    foreach ($request->measurements as $item) {
+                        // Note: Ensure convertToFeet function exists in this class
+                        $wInFeet = $this->convertToFeet($item['width_val'], $item['width_unit']);
+                        $hInFeet = $this->convertToFeet($item['height_val'], $item['height_unit']);
+                        $calculatedSqft = $wInFeet * $hInFeet * $item['qty'];
+                        $totalCalculatedSqft += $calculatedSqft;
 
-            case 'lost':
-                $lead->update([
-                    'lead_stage' => 7,
-                    'lost_type'  => $request->lost_type,
-                    'competitor' => $request->competitor
-                ]);
-                break;
-
-            case 'site_handover':
-                if ($request->hasFile('final_site_photos')) {
-                    foreach ($request->file('final_site_photos') as $photo) {
-                        $path = $photo->store('handover_photos', 'public');
-                        LeadHandoverPhoto::create([
-                            'lead_id'    => $lead->id,
-                            'photo_path' => $path
+                        MeasurementDetail::create([
+                            'lead_id'     => $lead->id,
+                            'user_id'     => $lead->user_id,
+                            'product'     => $item['product'],
+                            'design_code' => $item['design_code'] ?? null,
+                            'area'        => $item['area'] ?? null,
+                            'width_val'   => $item['width_val'],
+                            'width_unit'  => $item['width_unit'],
+                            'height_val'  => $item['height_val'],
+                            'height_unit' => $item['height_unit'],
+                            'qty'         => $item['qty'],
+                            'color'       => $item['color'] ?? null,
+                            'sqft'        => round($calculatedSqft, 2),
+                            'notes'       => $item['notes'] ?? null,
                         ]);
                     }
-                }
-                $lead->update([
-                    'lead_stage'      => 6,
-                    'installed_date'  => $request->installed_date,
-                    'handovered_date' => $request->handovered_date,
-                    'google_review'   => $request->google_review ?? null,
-                    'status'          => '0' 
-                ]);
-                break;
+                    FabricatorRequest::create([
+                        'lead_id'       => $lead->id,
+                        'fabricator_id' => $request->fabricator_id,
+                        'approx_sqft'   => round($totalCalculatedSqft, 2),
+                        'notes'         => $request->notes,
+                    ]);
+                    $lead->update([
+                        'lead_stage' => 3, 
+                        'priority'   => $request->priority
+                    ]); 
+                    break;
+
+                case 'quotationsent_followup':
+                    $lead->update(['follow_up_date' => $request->follow_up_date]);
+                    break;
+
+                case 'won':
+                    $pdfPath = $lead->final_quotation_pdf;
+                    if ($request->hasFile('final_quotation_pdf')) {
+                        $pdfPath = $request->file('final_quotation_pdf')->store('final_quotes', 'public');
+                    }
+                    $lead->update([
+                        'lead_stage'                 => 5,
+                        'rate_per_sqft'              => $request->per_sq_ft_rate,
+                        'won_date'                   => Carbon::today(),
+                        'expected_installation_date' => $request->expected_installation_date,
+                        'advance_received'           => $request->advance_received,
+                        'final_quotation_pdf'        => $pdfPath,
+                        'status'                     => 'Won'
+                    ]);
+                    break;
+
+                case 'lost':
+                    $lead->update([
+                        'lead_stage' => 7,
+                        'lost_type'  => $request->lost_type,
+                        'competitor' => $request->competitor
+                    ]);
+                    break;
+
+                case 'site_handover':
+                    if ($request->hasFile('final_site_photos')) {
+                        foreach ($request->file('final_site_photos') as $photo) {
+                            LeadHandoverPhoto::create([
+                                'lead_id'    => $lead->id,
+                                'photo_path' => $photo->store('handover_photos', 'public')
+                            ]);
+                        }
+                    }
+                    $lead->update([
+                        'lead_stage'      => 6,
+                        'installed_date'  => $request->installed_date,
+                        'handovered_date' => $request->handovered_date,
+                        'google_review'   => $request->google_review ?? null,
+                        'status'          => '0' 
+                    ]);
+                    break;
+            }
+
+            // 6. Log Status
+            // Check if Helper exists, otherwise comment this out
+            if (class_exists('App\Helpers\LeadHelper')) {
+                LeadHelper::logStatus(
+                    $lead,
+                    $lead->building_status ?? 'Status Updated',
+                    $lead->lead_stage
+                );
+            }
+
+            // 7. Checkout the Visit
+            $visit->update([
+                'out_time'   => Carbon::now()->toTimeString(),
+                'outlat'     => $request->outlat,
+                'outlong'    => $request->outlong,
+                'remarks'    => $request->remarks,
+                'lead_stage' => $lead->lead_stage
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Check-out successful and Lead updated for ' . $request->action_type,
+                'data'    => $visit
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            // Return detailed error for debugging
+            return response()->json([
+                'status' => false, 
+                'message' => 'Error: ' . $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ], 500);
         }
-
-        // 6. Log Status
-        LeadHelper::logStatus(
-            $lead,
-            $lead->building_status ?? 'Status Updated',
-            $lead->lead_stage
-        );
-
-        // 7. Checkout the Visit
-        $visit->update([
-            'out_time'   => Carbon::now()->toTimeString(),
-            'outlat'     => $request->outlat,
-            'outlong'    => $request->outlong,
-            'remarks'    => $request->remarks,
-            'lead_stage' => $lead->lead_stage      // <--- ADDED: Storing the updated lead stage
-        ]);
-
-        DB::commit();
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Check-out successful and Lead updated for ' . $request->action_type,
-            'data'    => $visit
-        ], 200);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
     }
-}
 
 
 /**
@@ -1459,5 +1433,206 @@ public function transferLead(Request $request)
         'data'    => $dmLead
     ], 200);
 }
+
+
+public function getLeadDetails(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'lead_id' => 'required|exists:leads,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    $lead = Lead::where('id', $request->lead_id)->first();
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Lead details fetched successfully',
+        'data'    => $lead
+    ], 200);
+}
+/**
+     * Get BDO Tour Plan Calendar (Monthly View)
+     * Uses LeadVisit model
+     */
+    public function getBdoTourPlanCalendar(Request $request)
+    {
+        // 1. Validate Inputs
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'month'   => 'required|numeric|min:1|max:12',
+            'year'    => 'required|numeric|min:2024|max:2030',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        // 2. Define Date Range
+        $year = $request->year;
+        $month = $request->month;
+        
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
+        $endDate   = $startDate->copy()->endOfMonth();
+
+        // 3. Fetch Existing Plans from LeadVisit DB
+        $dbPlans = LeadVisit::where('user_id', $request->user_id)
+            ->whereBetween('schedule_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->orderBy('created_at', 'desc') 
+            ->get()
+            // --- FIX: Normalize keys to Y-m-d to prevent mismatch with timestamps ---
+            ->mapWithKeys(function ($item) {
+                // Extracts just the date part (first 10 chars) 
+                return [substr($item->schedule_date, 0, 10) => $item];
+            });
+
+        // 4. Generate Calendar Data
+        $calendar = [];
+        $currentDate = $startDate->copy();
+
+        $statusMap = [
+            '0' => ['label' => 'Not Planned',  'color' => '#808080'], 
+            '1' => ['label' => 'Local Station','color' => '#28a745'], 
+            '2' => ['label' => 'Out Station',  'color' => '#007bff'], 
+            '3' => ['label' => 'Meeting',      'color' => '#ffc107'], 
+            '4' => ['label' => 'Leave',        'color' => '#dc3545'], 
+        ];
+
+        while ($currentDate->lte($endDate)) {
+            $dateString = $currentDate->format('Y-m-d');
+            
+            // Check if date exists in our fetched list
+            if ($dbPlans->has($dateString)) {
+                $record = $dbPlans->get($dateString);
+                $statusId = (string)$record->food_allowance; 
+            } else {
+                $statusId = '0'; // Default to Not Planned
+            }
+
+            $calendar[] = [
+                'date'   => $dateString,
+                'day'    => $currentDate->format('l'),
+                'status' => $statusId,
+                'label'  => $statusMap[$statusId]['label'] ?? 'Unknown',
+                'color'  => $statusMap[$statusId]['color'] ?? '#000000',
+            ];
+
+            $currentDate->addDay();
+        }
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'BDO Tour plan calendar retrieved successfully',
+            'data'    => $calendar
+        ], 200);
+    }
+
+    /**
+     * View BDO Tour Plan for a Specific Date
+     * Segregates data into Joint Work and Individual Work
+     * Uses LeadVisit model
+     */
+    public function viewBdoTourPlan(Request $request)
+    {
+        // 1. Validate Inputs
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'date'    => 'required|date_format:Y-m-d',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        // 2. Fetch Visits from LeadVisit
+        // Using LIKE query to match date string regardless of time component
+        $visits = LeadVisit::with(['lead', 'account', 'fabricator'])
+            ->where('user_id', $request->user_id)
+            ->where('schedule_date', 'like', $request->date . '%') 
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 3. Initialize Structure
+        $jointWork = [];
+        $individualWork = [];
+        
+        $statusMap = [
+            '0' => 'Not Planned',
+            '1' => 'Local Station',
+            '2' => 'Out Station',
+            '3' => 'Meeting',
+            '4' => 'Leave',
+        ];
+
+        // Determine Overall Day Status
+        $dayStatusId = $visits->isNotEmpty() ? $visits->first()->food_allowance : '0';
+        $dayStatusLabel = $statusMap[$dayStatusId] ?? 'Unknown';
+
+        // 4. Loop and Segregate
+        foreach ($visits as $row) {
+            
+            // Resolve Name
+            $name = null;
+            if ($row->visit_type == '1') { // Account
+                $name = $row->account ? $row->account->name : 'Unknown Account';
+            } elseif ($row->visit_type == '2') { // Lead
+                $name = $row->lead ? $row->lead->name : 'Unknown Lead';
+            } elseif ($row->visit_type == '3') { // Fabricator
+                $name = $row->fabricator ? $row->fabricator->shop_name : 'Unknown Fabricator';
+            }
+
+            // Build Data Object
+            $data = [
+                'visit_id'      => $row->id,
+                'visit_type_id' => $row->visit_type,
+                'visit_type'    => match($row->visit_type) {
+                                    '1' => 'Account',
+                                    '2' => 'Lead',
+                                    '3' => 'Fabricator',
+                                    default => 'Unknown'
+                                   },
+                'name'          => $name,
+                
+                // IDs
+                'lead_id'       => $row->lead_id,
+                'account_id'    => $row->account_id,
+                'fabricator_id' => $row->fabricator_id,
+                
+                // Details
+                'work_type'     => $row->work_type,
+                'remarks'       => $row->remarks,
+                'status'        => ($row->action == '2') ? 'Visited' : 'Pending', 
+                'schedule_date' => $row->schedule_date,
+                'visit_date'    => $row->visit_date,
+                'intime'        => $row->intime_time, 
+                'outtime'       => $row->out_time,    
+            ];
+
+            // Segregate
+            if ($row->work_type === 'Joint Work') {
+                $jointWork[] = $data;
+            } else {
+                $individualWork[] = $data;
+            }
+        }
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'BDO Tour plan details retrieved successfully',
+            'data'    => [
+                'date'            => $request->date,
+                'day_status'      => $dayStatusLabel,
+                'total_visits'    => $visits->count(),
+                'joint_work'      => $jointWork,
+                'individual_work' => $individualWork,
+            ]
+        ], 200);
+    }
+
 
 }

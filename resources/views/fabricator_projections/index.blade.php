@@ -101,6 +101,8 @@
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Created By</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Month</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Projection (Ton)</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Actual (Ton)</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Achievement %</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Collection</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Action</th>
                     </tr>
@@ -214,6 +216,8 @@
                 { data: 'user_name', name: 'user_name', className: 'px-4' },
                 { data: 'projection_month', name: 'projection_month', className: 'px-4' },
                 { data: 'sale_projection_tonnage', name: 'sale_projection_tonnage', className: 'px-4' },
+                { data: 'actual_tonnage', name: 'actual_tonnage', className: 'px-4 font-bold text-slate-600' },
+                { data: 'achievement_percent', name: 'achievement_percent', className: 'px-4 text-center' },
                 { data: 'fabricator_collection', name: 'fabricator_collection', className: 'px-4' },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
             ],

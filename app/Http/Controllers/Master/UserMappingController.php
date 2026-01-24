@@ -48,7 +48,7 @@ class UserMappingController extends Controller
 
 public function store(Request $request)
 {
-    // Custom error messages for better alerts
+    // 1. Validation
     $request->validate([
         'bdo_ids' => 'required|array|min:1',
         'bdm_id'  => 'required',
@@ -60,17 +60,64 @@ public function store(Request $request)
         'bdo_ids.required' => 'Please select at least one BDO to map.',
     ]);
 
-    foreach ($request->bdo_ids as $bdo_id) {
-        UserMapping::updateOrCreate(
-            ['bdo_id' => $bdo_id],
-            [
+    // 2. Check if this is an Update (Edit Mode) or Insert (Add Mode)
+    // The hidden input 'id' is passed from the form.
+    if (!empty($request->id)) {
+        
+        // --- EDIT MODE ---
+        $mapping = UserMapping::findOrFail($request->id);
+        
+        // Take the first BDO ID (since edit mode usually deals with one row)
+        $newBdoId = $request->bdo_ids[0];
+
+        // Check if we are changing the BDO to someone else who is ALREADY mapped
+        if ($mapping->bdo_id != $newBdoId) {
+            $exists = UserMapping::where('bdo_id', $newBdoId)->exists();
+            if ($exists) {
+                return response()->json(['message' => 'The selected BDO is already mapped elsewhere.'], 422);
+            }
+        }
+
+        $mapping->update([
+            'bdo_id' => $newBdoId,
+            'md_id'  => $request->md_id,
+            'vp_id'  => $request->vp_id,
+            'ism_id' => $request->ism_id,
+            'zsm_id' => $request->zsm_id,
+            'bdm_id' => $request->bdm_id,
+        ]);
+
+    } else {
+        
+        // --- ADD MODE ---
+        
+        // 1. Pre-check: Do any of these BDOs already exist in the table?
+        $existingMappings = UserMapping::whereIn('bdo_id', $request->bdo_ids)
+                            ->with('bdo') // Load user to get name
+                            ->get();
+
+        if ($existingMappings->count() > 0) {
+            // Get names of BDOs that are already mapped
+            $names = $existingMappings->map(function($map) {
+                return $map->bdo ? $map->bdo->name : 'Unknown ID';
+            })->implode(', ');
+
+            return response()->json([
+                'message' => "The following BDOs are already mapped: $names. Please remove them or edit their existing entry."
+            ], 422);
+        }
+
+        // 2. If no duplicates found, Create New Records
+        foreach ($request->bdo_ids as $bdo_id) {
+            UserMapping::create([
+                'bdo_id' => $bdo_id,
                 'md_id'  => $request->md_id,
                 'vp_id'  => $request->vp_id,
                 'ism_id' => $request->ism_id,
                 'zsm_id' => $request->zsm_id,
                 'bdm_id' => $request->bdm_id,
-            ]
-        );
+            ]);
+        }
     }
 
     return response()->json(['success' => 'Hierarchy mapping saved.']);

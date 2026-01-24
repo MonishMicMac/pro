@@ -25,6 +25,7 @@ class LeadVisitBdm extends Model
         'outlat', 
         'outlong', 
         'remarks', 
+        'data_comes_from', 
         'work_type', 
         'bdm_id', 
         'bdo_id', 

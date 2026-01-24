@@ -15,7 +15,8 @@ class FabricatorRequest extends Model
         'notes',
         'status',
         'fabrication_pdf', // Added
-        'rate_per_sqft'    // Added
+        'rate_per_sqft',    // Added
+        'total_quotation_amount'
     ];
 
     public function lead()
@@ -27,5 +28,4 @@ class FabricatorRequest extends Model
     {
         return $this->belongsTo(Fabricator::class, 'fabricator_id');
     }
-
 }

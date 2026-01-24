@@ -24,6 +24,8 @@ Route::post('/leads/schedule', [LeadController::class, 'storeSchedule']);
 Route::get('/leads/schedule-list', [LeadController::class, 'getScheduleList']);
 Route::post('/leads/check-in', [LeadController::class, 'leadCheckIn']);
 Route::post('/leads/check-out', [LeadController::class, 'leadCheckOut']);
+Route::get('/leads/details', [LeadController::class, 'getLeadDetails']);
+
 
 Route::post('/leads/unplanned-schedule', [LeadController::class, 'storeUnplannedSchedule']);
 Route::get('/leads/unplanned-schedule-list', [LeadController::class, 'getUnplannedScheduleList']);
@@ -42,6 +44,9 @@ Route::post('/leads/bdm/unplanned-check-out', [BdmController::class, 'unplannedB
 
 Route::post('/bdm/assignedbdolist', [BdmController::class, 'getAssignedBdoList']);
 Route::post('/bdm/lead-list', [BdmController::class, 'getBdmTeamLeadList']);
+Route::post('bdm/lead-details', [BdmController::class, 'getLeadDetailsForBdm']);
+Route::post('bdm/team-details', [BdmController::class, 'getBdmTeamReport']);
+Route::post('bdm/km-coverage', [BdmController::class, 'getKmCoverage']);
 
 Route::get('/zones/list', [BdmController::class, 'getZoneList']);
 
@@ -73,6 +78,9 @@ Route::post('/leads/handover', [LeadController::class, 'completeSiteHandover']);
 Route::post('/expenses', [App\Http\Controllers\Api\ExpenseController::class, 'store']);
 Route::get('/expenses', [App\Http\Controllers\Api\ExpenseController::class, 'getExpenses']);
 
+Route::get('/expenses-type', [App\Http\Controllers\Api\ExpenseController::class, 'mobileIndex']);
+
+
 Route::prefix('users')->group(function () {
     Route::post('send-otp', [LoginController::class, 'sendOtp']);
     Route::post('verify-otp', [LoginController::class, 'verifyOtp']);
@@ -90,6 +98,12 @@ Route::prefix('users')->group(function () {
     Route::post('/fabricator/details', [FabricatorController::class, 'getFabricatorDetails']);
     Route::post('/tourplan', [BdmController::class, 'getTourPlanCalendar']);
     Route::post('view/tourplan', [BdmController::class, 'viewTourPlan']);
+    Route::post('/joint-work-requests', [BdmController::class, 'getJointWorkRequests']);
+    Route::post('/update-joint-work-status', [BdmController::class, 'updateJointWorkStatus']);
+    Route::post('/profile', [BdmController::class, 'getBdmProfile']);
+
+    Route::post('bdo/tour-plan-calendar', [LeadController::class, 'getBdoTourPlanCalendar']);
+    Route::post('bdo/view-tour-plan', [LeadController::class, 'viewBdoTourPlan']);
 
 
     
@@ -114,6 +128,7 @@ Route::prefix('fabricator')->group(function () {
 
 
 Route::get('/accounts', [App\Http\Controllers\Api\AccountController::class, 'index']);
+Route::get('/accounts/details', [App\Http\Controllers\Api\AccountController::class, 'getaccountDetails']);
 Route::post('/accounts', [App\Http\Controllers\Api\AccountController::class, 'store']);
 Route::get('/account-types', [App\Http\Controllers\Api\AccountController::class, 'getTypes']);
 Route::get('/locations', [App\Http\Controllers\Api\AccountController::class, 'getLocations']);
@@ -123,3 +138,11 @@ Route::prefix('fabricator-projections')->group(function () {
     Route::get('/', [FabricatorProjectionController::class, 'index']);
     Route::post('/', [FabricatorProjectionController::class, 'store']);
 });
+
+
+use App\Http\Controllers\Api\S3Controller;
+
+Route::post('/upload-image', [S3Controller::class, 'upload']);
+Route::get('/files', [S3Controller::class, 'list']);
+
+

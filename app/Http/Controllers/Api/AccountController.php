@@ -41,6 +41,76 @@ class AccountController extends Controller
         ]);
     }
 
+    /**
+     * Get Full Details for a specific Account
+     */
+    public function getAccountDetails(Request $request)
+    {
+        // 1. Validate Input
+        $validator = Validator::make($request->all(), [
+            'account_id' => 'required|exists:accounts,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            // 2. Fetch Account with relationships
+            // Ensuring we only fetch active accounts (action = '0')
+            $account = Account::with(['zone', 'state', 'district', 'accountType'])
+                ->where('id', $request->account_id)
+                ->where('action', '0') 
+                ->first();
+
+            if (!$account) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Account not found or inactive.'
+                ], 404);
+            }
+
+            // 3. Construct Response Data
+            // Note: Adjust attribute names (e.g., district_name) if your DB is different
+            $data = [
+                'account_id'      => $account->id,
+                'name'            => $account->name,
+                'mobile_number'   => $account->mobile_number,
+                
+                // Account Type Details
+                'account_type_id' => $account->account_type_id,
+                'account_type'    => $account->accountType ? $account->accountType->name : null,
+
+                // Location Details
+                'zone_id'         => $account->zone_id,
+                'zone_name'       => $account->zone ? $account->zone->name : null,
+                
+                'state_id'        => $account->state_id,
+                'state_name'      => $account->state ? $account->state->name : null,
+                
+                'district_id'     => $account->district_id,
+                'district_name'   => $account->district ? $account->district->district_name : null,
+
+                'created_at'      => $account->created_at->format('Y-m-d H:i:s'),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Account details retrieved successfully',
+                'data'    => $data
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getTypes()
     {
         $types = AccountType::where('action', '0')->get();

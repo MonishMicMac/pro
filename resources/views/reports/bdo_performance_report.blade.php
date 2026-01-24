@@ -10,20 +10,31 @@
 <style type="text/tailwindcss">
     @layer components {
         .glass-panel {
-            @apply bg-white/75 backdrop-blur-xl border border-white/40 shadow-sm transition-all;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.05);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            @apply transition-all duration-200;
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.9);
+            @apply shadow-md transform -translate-y-0.5;
         }
         .form-input-custom {
             @apply w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer;
         }
-        .report-header-cell {
-            @apply px-2 py-2 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center border font-extrabold bg-slate-100;
-        }
-        .report-data-cell {
-            @apply px-2 py-3 text-xs font-bold text-slate-700 text-center border bg-white;
-        }
     }
-    table.dataTable { border-collapse: collapse !important; width: 100% !important; }
-    table.dataTable thead th { border-bottom: none !important; }
+    
+    #report-pagination .paginate_button {
+        @apply px-2 py-1 mx-0.5 rounded-md border-none bg-white text-slate-600 font-bold text-[10px] cursor-pointer transition-all inline-flex items-center justify-center min-w-[24px];
+    }
+    #report-pagination .paginate_button.current { @apply bg-blue-600 text-white shadow-md shadow-blue-500/30; }
+    table.dataTable { border-collapse: separate !important; border-spacing: 0 0.4rem !important; }
 </style>
 
 <div class="flex-1 overflow-y-auto p-5 space-y-6 pb-20 bg-[#f8fafc] relative z-0">
@@ -39,7 +50,7 @@
     </div>
 
     <!-- Filters Section -->
-    <div class="glass-panel rounded-none p-5 relative z-20">
+    <div class="glass-panel rounded-[1.5rem] p-5 relative z-20">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Zone</label>
@@ -51,15 +62,58 @@
                 </select>
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">From Date</label>
-                <input type="date" id="filter_from_date" class="form-input-custom" value="{{ date('Y-m-01') }}">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Zone Manager</label>
+                <select id="filter_zsm_id" class="form-input-custom">
+                    <option value="">Select ZSM</option>
+                </select>
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">To Date</label>
-                <input type="date" id="filter_to_date" class="form-input-custom" value="{{ date('Y-m-t') }}">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Manager</label>
+                <select id="filter_bdm_id" class="form-input-custom">
+                    <option value="">Select BDM</option>
+                </select>
             </div>
-             <div class="flex items-end">
-                <button id="btn_filter" class="w-full h-[38px] bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-blue-500/20">
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">BDO</label>
+                <select id="filter_bdo_id" class="form-input-custom">
+                    <option value="">Select BDO</option>
+                </select>
+            </div>
+             <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">State</label>
+                <select id="filter_state_id" class="form-input-custom">
+                    <option value="">Select State</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">District</label>
+                <select id="filter_district_id" class="form-input-custom">
+                    <option value="">Select District</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">City</label>
+                <select id="filter_city_id" class="form-input-custom">
+                    <option value="">Select City</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                 <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">From Date</label>
+                    <input type="date" id="filter_from_date" class="form-input-custom" value="{{ date('Y-m-01') }}">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">To Date</label>
+                    <input type="date" id="filter_to_date" class="form-input-custom" value="{{ date('Y-m-t') }}">
+                </div>
+            </div>
+           
+            <div class="flex items-end justify-between md:col-span-4 mt-2">
+                <div class="relative w-64">
+                   <input type="text" id="custom-search" placeholder="Search..." class="bg-white/50 border-slate-200 rounded-xl text-xs font-bold text-slate-600 placeholder:text-slate-300 w-full pr-10 focus:ring-blue-500">
+                   <span class="material-symbols-outlined absolute right-3 top-2.5 text-slate-300 text-lg">search</span>
+               </div>
+                <button id="btn_filter" class="w-48 h-[38px] bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-blue-500/20">
                     <span class="material-symbols-outlined text-[18px]">refresh</span> Apply Filters
                 </button>
             </div>
@@ -67,68 +121,74 @@
     </div>
 
     <!-- Table Section -->
-    <div class="glass-panel rounded-none overflow-hidden relative z-10 p-2">
-        <div class="overflow-x-auto">
-            <table class="w-full border border-slate-200" id="bdo-report-table">
+    <div class="glass-panel rounded-[1.5rem] overflow-hidden relative z-10">
+        <div class="p-4 bg-white/30 border-b border-white/50 flex justify-between items-center">
+             <div>
+               <p id="table-info" class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Records: 0</p>
+            </div>
+        </div>
+
+        <div class="px-4 overflow-x-auto">
+            <table class="w-full" id="bdo-report-table">
                 <thead>
                     <!-- Top Header Row -->
                     <tr>
-                        <th colspan="5" class="bg-blue-50 border p-2 text-center text-xs font-black text-blue-800 uppercase tracking-widest" id="zone-header">ZONE: ALL</th>
-                        <th colspan="5" class="bg-white border p-2 text-center text-xs font-black text-slate-600 uppercase tracking-widest">Monthly Performance Report</th>
-                        <th colspan="9" class="bg-orange-50 border p-2 text-center text-xs font-black text-orange-800 uppercase tracking-widest" id="date-header">Date Range</th>
+                         <th colspan="5" class="pb-2 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest" id="zone-header">ZONE: ALL</th>
+                        <th colspan="5" class="pb-2 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Performance</th>
+                        <th colspan="9" class="pb-2 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest" id="date-header">Date Range</th>
                     </tr>
                     <!-- Group Header Row -->
                     <tr>
-                        <th colspan="5" class="bg-slate-200 border"></th> <!-- Spacer for basic info -->
-                        <th colspan="5" class="report-header-cell bg-orange-100/50 text-orange-900">MEETINGS</th>
-                        <th colspan="2" class="report-header-cell bg-orange-200/50 text-orange-900">QUOTATIONS</th>
-                        <th colspan="4" class="report-header-cell bg-orange-200/50 text-orange-900">QUOTE WON</th>
-                        <th colspan="5" class="bg-slate-200 border"></th> <!-- Spacer for metrics -->
+                        <th colspan="5"></th>
+                        <th colspan="5" class="pb-2 text-center text-[10px] font-black text-blue-600 bg-blue-50/50 uppercase tracking-widest rounded-t-xl mx-1 border-x border-t border-blue-100/50">MEETINGS</th>
+                        <th colspan="2" class="pb-2 text-center text-[10px] font-black text-orange-600 bg-orange-50/50 uppercase tracking-widest rounded-t-xl mx-1 border-x border-t border-orange-100/50">QUOTATIONS</th>
+                        <th colspan="4" class="pb-2 text-center text-[10px] font-black text-green-600 bg-green-50/50 uppercase tracking-widest rounded-t-xl mx-1 border-x border-t border-green-100/50">QUOTE WON</th>
+                        <th colspan="5"></th>
                     </tr>
                     <!-- Column Header Row -->
-                    <tr>
-                        <th class="report-header-cell bg-teal-100/30">S.No</th>
-                        <th class="report-header-cell bg-teal-100/30">Executive Name</th>
-                        <th class="report-header-cell bg-teal-100/30">Base City</th>
-                        <th class="report-header-cell bg-teal-100/30">DOJ</th>
-                        <th class="report-header-cell bg-teal-100/30">Designation</th>
+                    <tr class="text-left">
+                        <th class="pl-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">S.No</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Executive</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Base City</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">DOJ</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Role</th>
                         
-                        <th class="report-header-cell">HO Lead Assigned</th>
-                        <th class="report-header-cell">Own Lead Gen</th>
-                        <th class="report-header-cell">New (Intro)</th>
-                        <th class="report-header-cell">Follow up</th>
-                        <th class="report-header-cell font-black bg-slate-200">TOTAL</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-blue-50/30 uppercase tracking-wider text-center border-l border-blue-100/50">HO Leads</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-blue-50/30 uppercase tracking-wider text-center">Own Leads</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-blue-50/30 uppercase tracking-wider text-center">New</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-blue-50/30 uppercase tracking-wider text-center">F/Up</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-blue-600 bg-blue-50/50 uppercase tracking-wider text-center border-r border-blue-100/50">TOTAL</th>
 
-                        <th class="report-header-cell">Quote Given</th>
-                        <th class="report-header-cell">Total Sqft</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-orange-50/30 uppercase tracking-wider text-center border-l border-orange-100/50">Given</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-orange-600 bg-orange-50/50 uppercase tracking-wider text-center border-r border-orange-100/50">Sqft</th>
 
-                        <th class="report-header-cell">Quote</th>
-                        <th class="report-header-cell">White</th>
-                        <th class="report-header-cell">Laminate</th>
-                        <th class="report-header-cell">Total Sqft</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-green-50/30 uppercase tracking-wider text-center border-l border-green-100/50">Count</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-green-50/30 uppercase tracking-wider text-center">White</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-500 bg-green-50/30 uppercase tracking-wider text-center">Lam</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-green-600 bg-green-50/50 uppercase tracking-wider text-center border-r border-green-100/50">Total Sqft</th>
 
-                        <th class="report-header-cell">HO Lead Won</th>
-                        <th class="report-header-cell">Pipe Line Sq.Ft</th>
-                        <th class="report-header-cell">Google Review</th>
-                        <th class="report-header-cell">Working Days</th>
-                        <th class="report-header-cell">Remarks</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">HO Won</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Pipeline</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Review</th>
+                        <th class="px-2 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Days</th>
+                        <th class="pr-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Remarks</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody class="text-xs font-bold text-slate-700"></tbody>
                 <tfoot>
-                    <tr class="font-black text-xs text-slate-800 bg-slate-100">
-                        <td colspan="5" class="text-right p-3">Total</td>
-                        <td id="t-ho-assigned" class="text-center p-3">0</td>
-                        <td id="t-own-gen" class="text-center p-3">0</td>
-                        <td id="t-new" class="text-center p-3">0</td>
-                        <td id="t-followup" class="text-center p-3">0</td>
-                        <td id="t-total-meet" class="text-center p-3">0</td>
-                        <td id="t-quote-given" class="text-center p-3">0</td>
-                        <td id="t-quote-sqft" class="text-center p-3">0</td>
-                        <td id="t-won-quote" class="text-center p-3">0</td>
-                        <td id="t-won-white" class="text-center p-3">0</td>
-                        <td id="t-won-lam" class="text-center p-3">0</td>
-                        <td id="t-won-sqft" class="text-center p-3">0</td>
+                    <tr class="font-black text-xs text-slate-800 bg-slate-50/50">
+                        <td colspan="5" class="text-right p-3 uppercase tracking-wider text-[10px]">Total</td>
+                        <td id="t-ho-assigned" class="text-center p-3 bg-blue-50/30 text-slate-600">0</td>
+                        <td id="t-own-gen" class="text-center p-3 bg-blue-50/30 text-slate-600">0</td>
+                        <td id="t-new" class="text-center p-3 bg-blue-50/30 text-slate-600">0</td>
+                        <td id="t-followup" class="text-center p-3 bg-blue-50/30 text-slate-600">0</td>
+                        <td id="t-total-meet" class="text-center p-3 bg-blue-100/50 text-blue-700">0</td>
+                        <td id="t-quote-given" class="text-center p-3 bg-orange-50/30 text-slate-600">0</td>
+                        <td id="t-quote-sqft" class="text-center p-3 bg-orange-100/50 text-orange-700">0</td>
+                        <td id="t-won-quote" class="text-center p-3 bg-green-50/30 text-slate-600">0</td>
+                        <td id="t-won-white" class="text-center p-3 bg-green-50/30 text-slate-600">0</td>
+                        <td id="t-won-lam" class="text-center p-3 bg-green-50/30 text-slate-600">0</td>
+                        <td id="t-won-sqft" class="text-center p-3 bg-green-100/50 text-green-700">0</td>
                         <td id="t-ho-won" class="text-center p-3">0</td>
                         <td id="t-pipeline" class="text-center p-3">0</td>
                         <td colspan="3"></td>
@@ -151,39 +211,52 @@
                 url: "{{ route('bdo_performance.report.data') }}",
                 data: function (d) {
                     d.zone_id = $('#filter_zone_id').val();
+                    d.state_id = $('#filter_state_id').val();
+                    d.district_id = $('#filter_district_id').val();
+                    d.city_id = $('#filter_city_id').val();
+                    d.zsm_id = $('#filter_zsm_id').val();
+                    d.bdm_id = $('#filter_bdm_id').val();
+                    d.bdo_id = $('#filter_bdo_id').val();
                     d.from_date = $('#filter_from_date').val();
                     d.to_date = $('#filter_to_date').val();
                 }
             },
-            paging: false,
-            searching: false,
+            createdRow: function(row) {
+                $(row).addClass('glass-card group');
+                $(row).find('td:first').addClass('pl-4 py-2 rounded-l-xl');
+                $(row).find('td:last').addClass('pr-4 py-2 rounded-r-xl');
+                $(row).find('td').not(':first').not(':last').addClass('py-2 text-center');
+            },
+            paging: true,
+            searching: true,
             columns: [
-                { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, className: 'report-data-cell bg-slate-50' },
-                { data: 'name', name: 'name', className: 'report-data-cell font-black' },
-                { data: 'base_city', name: 'base_city', className: 'report-data-cell' },
-                { data: 'doj', name: 'doj', className: 'report-data-cell' },
-                { data: 'designation', name: 'designation', className: 'report-data-cell' },
+                { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, className: 'text-center' },
+                { data: 'name', name: 'name', className: 'font-black' },
+                { data: 'base_city', name: 'base_city' },
+                { data: 'doj', name: 'doj' },
+                { data: 'designation', name: 'designation' },
                 
-                { data: 'ho_lead_assigned', name: 'ho_lead_assigned', className: 'report-data-cell' },
-                { data: 'own_lead_generation', name: 'own_lead_generation', className: 'report-data-cell' },
-                { data: 'intro_meeting', name: 'intro_meeting', className: 'report-data-cell' },
-                { data: 'follow_up_meeting', name: 'follow_up_meeting', className: 'report-data-cell' },
-                { data: 'total_meetings', name: 'total_meetings', className: 'report-data-cell bg-slate-100 font-black' },
+                { data: 'ho_lead_assigned', name: 'ho_lead_assigned', className: 'bg-blue-50/30' },
+                { data: 'own_lead_generation', name: 'own_lead_generation', className: 'bg-blue-50/30' },
+                { data: 'intro_meeting', name: 'intro_meeting', className: 'bg-blue-50/30' },
+                { data: 'follow_up_meeting', name: 'follow_up_meeting', className: 'bg-blue-50/30' },
+                { data: 'total_meetings', name: 'total_meetings', className: 'font-black text-blue-600 bg-blue-50/50' },
                 
-                { data: 'quote_given', name: 'quote_given', className: 'report-data-cell' },
-                { data: 'quote_total_sqft', name: 'quote_total_sqft', className: 'report-data-cell' },
+                { data: 'quote_given', name: 'quote_given', className: 'bg-orange-50/30' },
+                { data: 'quote_total_sqft', name: 'quote_total_sqft', className: 'font-black text-orange-600 bg-orange-50/50' },
                 
-                { data: 'won_quote', name: 'won_quote', className: 'report-data-cell' },
-                { data: 'won_white', name: 'won_white', className: 'report-data-cell' },
-                { data: 'won_laminate', name: 'won_laminate', className: 'report-data-cell' },
-                { data: 'won_total_sqft', name: 'won_total_sqft', className: 'report-data-cell' },
+                { data: 'won_quote', name: 'won_quote', className: 'bg-green-50/30' },
+                { data: 'won_white', name: 'won_white', className: 'bg-green-50/30' },
+                { data: 'won_laminate', name: 'won_laminate', className: 'bg-green-50/30' },
+                { data: 'won_total_sqft', name: 'won_total_sqft', className: 'font-black text-green-600 bg-green-50/50' },
                 
-                { data: 'ho_lead_won', name: 'ho_lead_won', className: 'report-data-cell' },
-                { data: 'pipeline_sqft', name: 'pipeline_sqft', className: 'report-data-cell' },
-                { data: 'google_review', name: 'google_review', className: 'report-data-cell' },
-                { data: 'working_days', name: 'working_days', className: 'report-data-cell' },
-                { defaultContent: '', className: 'report-data-cell' } // Remarks
+                { data: 'ho_lead_won', name: 'ho_lead_won' },
+                { data: 'pipeline_sqft', name: 'pipeline_sqft' },
+                { data: 'google_review', name: 'google_review' },
+                { data: 'working_days', name: 'working_days' },
+                { defaultContent: '' } // Remarks
             ],
+            dom: 'rtp',
             drawCallback: function(settings) {
                 // Update Header
                 const zoneText = $('#filter_zone_id option:selected').text();
@@ -210,13 +283,93 @@
                 $('#t-quote-given').text(sumColumn(10));
                 $('#t-quote-sqft').text(sumColumn(11).toFixed(0)); // Sqft as integer
                 $('#t-won-quote').text(sumColumn(12));
-                $('#t-won-white').text(sumColumn(13));
-                $('#t-won-lam').text(sumColumn(14));
+                $('#t-won-white').text(sumColumn(13).toFixed(2));
+                $('#t-won-lam').text(sumColumn(14).toFixed(2));
                 $('#t-won-sqft').text(sumColumn(15).toFixed(0));
                 $('#t-ho-won').text(sumColumn(16));
                 $('#t-pipeline').text(sumColumn(17).toFixed(0));
+
+                const total = settings.json ? settings.json.recordsTotal : 0;
+                $('#table-info').text(`Total Records: ${total}`);
+                $('.dataTables_paginate').appendTo('#table-pagination');
+                $('#report-pagination').html($('.dataTables_paginate').html());
+                $('.dataTables_paginate').empty();
             }
         });
+
+        $('#custom-search').on('keyup input', function() {
+            table.search($(this).val()).draw();
+        });
+
+        // Hierarchical Filtering Logic
+        $('#filter_zone_id').change(function() {
+            const id = $(this).val();
+            resetSelect('#filter_state_id', 'Select State');
+            resetSelect('#filter_district_id', 'Select District');
+            resetSelect('#filter_city_id', 'Select City');
+            resetSelect('#filter_zsm_id', 'Select ZSM');
+            resetSelect('#filter_bdm_id', 'Select BDM');
+            resetSelect('#filter_bdo_id', 'Select BDO');
+            if (id) fetchLocationData('zone', id);
+        });
+
+        $('#filter_state_id').change(function() {
+            const id = $(this).val();
+            resetSelect('#filter_district_id', 'Select District');
+            resetSelect('#filter_city_id', 'Select City');
+            if (id) fetchLocationData('state', id);
+        });
+
+        $('#filter_district_id').change(function() {
+            const id = $(this).val();
+            resetSelect('#filter_city_id', 'Select City');
+            if (id) fetchLocationData('district', id);
+        });
+
+        $('#filter_zsm_id').change(function() {
+            const id = $(this).val();
+            resetSelect('#filter_bdm_id', 'Select BDM');
+            resetSelect('#filter_bdo_id', 'Select BDO');
+            if (id) fetchLocationData('zsm', id);
+        });
+
+        $('#filter_bdm_id').change(function() {
+            const id = $(this).val();
+            resetSelect('#filter_bdo_id', 'Select BDO');
+            if (id) fetchLocationData('bdm', id);
+        });
+
+        function resetSelect(selector, defaultText) {
+            $(selector).html(`<option value="">${defaultText}</option>`);
+        }
+
+        async function fetchLocationData(type, id) {
+            try {
+                const response = await fetch(`{{ route('bdo_performance.report.location-data') }}?type=${type}&id=${id}`);
+                const data = await response.json();
+                
+                if (type === 'zone') {
+                    if (data.states) populateOptions('#filter_state_id', data.states, 'Select State');
+                    if (data.zsms) populateOptions('#filter_zsm_id', data.zsms, 'Select ZSM');
+                } else if (type === 'state' && data.districts) {
+                    populateOptions('#filter_district_id', data.districts, 'Select District');
+                } else if (type === 'district' && data.cities) {
+                    populateOptions('#filter_city_id', data.cities, 'Select City');
+                } else if (type === 'zsm' && data.bdms) {
+                    populateOptions('#filter_bdm_id', data.bdms, 'Select BDM');
+                } else if (type === 'bdm' && data.bdos) {
+                    populateOptions('#filter_bdo_id', data.bdos, 'Select BDO');
+                }
+            } catch (e) { console.error('Fetch error', e); }
+        }
+
+        function populateOptions(selector, items, defaultText) {
+            let options = `<option value="">${defaultText}</option>`;
+            items.forEach(item => {
+                options += `<option value="${item.id}">${item.name}</option>`;
+            });
+            $(selector).html(options);
+        }
 
         $('#btn_filter').click(function() { table.draw(); });
     });

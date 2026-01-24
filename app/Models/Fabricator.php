@@ -15,11 +15,14 @@ use App\Models\Zone;
 use \App\Models\User;
 use \App\Models\FabricatorRequest;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 
 class Fabricator extends Authenticatable
 {
     use HasApiTokens;
+    use HasRoles;
 
+    protected $guard_name = 'fabricator';
     protected $fillable = [
         'shop_name',
         'password',

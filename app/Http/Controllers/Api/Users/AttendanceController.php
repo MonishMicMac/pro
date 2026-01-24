@@ -14,7 +14,7 @@ class AttendanceController extends Controller
      * Punch In
      * Logic: Check if user already has a record for today's date.
      */
-    public function punchIn(Request $request)
+   public function punchIn(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'in_lat'                => 'required',
@@ -29,7 +29,7 @@ class AttendanceController extends Controller
         }
 
         $user = $request->user();
-        $todayDate = Carbon::now()->format('Y-m-d'); // Current date for the 'date' column
+        $todayDate = Carbon::now()->format('Y-m-d');
 
         // 1. Check if the user already punched in today
         $existingRecord = UserAttendance::where('user_id', $user->id)
@@ -50,21 +50,22 @@ class AttendanceController extends Controller
             $photoName = basename($path);
         }
 
-        // 3. Get User Role Name
-        $role = $user->roles->first() ? $user->roles->first()->name : 'Unknown';
+        // 3. Get User Role ID (Changed from Name to ID)
+        // Checks if role exists, gets ID, otherwise defaults to null
+        $roleId = $user->roles->first() ? $user->roles->first()->id : null;
 
         // 4. Create Attendance Record
         $attendance = UserAttendance::create([
             'user_id'              => $user->id,
-            'user_role'            => $role,
-            'date'                 => $todayDate,               // Store Y-m-d
-            'punch_in_time'        => Carbon::now()->format('H:i:s'), // Store Time only
+            'user_role'            => $roleId, // Storing ID now
+            'date'                 => $todayDate,               
+            'punch_in_time'        => Carbon::now()->format('H:i:s'), 
             'in_lat'               => $request->in_lat,
             'in_long'              => $request->in_long,
             'start_km'             => $request->start_km,
             'start_km_photo'       => $photoName,
             'in_time_vehicle_type' => $request->in_time_vehicle_type,
-            'status'               => '0', // 0: In Progress
+            'status'               => '0', 
         ]);
 
         return response()->json([

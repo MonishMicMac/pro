@@ -287,8 +287,19 @@ $(document).ready(function() {
         }
     });
 
+    // function renderCell(name, row, field, label, badgeClass) {
+    //     return `<div class="flex items-center justify-between gap-2 min-w-[140px]">
+    //                 <span class="user-badge ${name ? badgeClass : 'bg-slate-50 text-slate-300 italic font-normal border border-slate-100'}">${name || 'Unassigned'}</span>
+    //                 <div class="cell-actions">
+    //                     ${row.can_edit ? `
+    //                         <button onclick="inlineEdit(${row.id}, '${field}', '${label}')" class="text-slate-400 hover:text-blue-500 transition-colors" title="Quick Change"><span class="material-symbols-outlined text-[16px] font-bold">sync</span></button>
+    //                     ` : ''}
+    //                 </div>
+    //             </div>`;
+    // }
     function renderCell(name, row, field, label, badgeClass) {
-        return `<div class="flex items-center justify-between gap-2 min-w-[140px]">
+        // CHANGED: 'justify-between' -> 'justify-start'
+        return `<div class="flex items-center justify-start gap-2 min-w-[140px]">
                     <span class="user-badge ${name ? badgeClass : 'bg-slate-50 text-slate-300 italic font-normal border border-slate-100'}">${name || 'Unassigned'}</span>
                     <div class="cell-actions">
                         ${row.can_edit ? `

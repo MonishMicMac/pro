@@ -1,15 +1,14 @@
-@extends('layouts.app')
+@extends('layouts.fabricator')
+
+@section('title', 'Fabricator Dashboard')
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
     rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-@section('title', 'Fabricator Dashboard')
 
 @section('content')
 
-    <a href="{{ route('fabricator.profile') }}" class="bg-indigo-600 text-white px-4 py-2 rounded">
-        View Profile
-    </a>
+
     <div class="max-w-6xl mx-auto mt-10 space-y-6">
 
         <h2 class="text-xl font-bold">

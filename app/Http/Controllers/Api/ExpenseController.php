@@ -5,66 +5,92 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Expense;
+use App\Models\ExpenseType;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ExpenseController extends Controller
 {
     /**
      * Store a new expense.
      */
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'user_id'            => 'required|exists:users,id',
-            'expense_type'       => 'required|exists:expense_types,id',
-            'other_expense_name' => 'nullable|string|max:255',
-            'expense_amount'     => 'required|numeric|min:0',
-            'expense_date'       => 'required|date',
-            'image'              => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+
+    public function mobileIndex()
+{
+    try {
+        $expenseTypes = ExpenseType::where('action', '0')
+            ->orderBy('id', 'desc')
+            ->get(['id', 'name']); // choose needed fields
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Expense types fetched successfully',
+            'data' => $expenseTypes
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Failed to fetch expense types',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+public function store(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'user_id'            => 'required|exists:users,id',
+        'expense_type'       => 'required|exists:expense_types,id',
+        'other_expense_name' => 'nullable|string|max:255',
+        'expense_amount'     => 'required|numeric|min:0',
+        'image'              => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first(),
+        ], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('expenses', 'public');
+        }
+
+        $expense = Expense::create([
+            'user_id'            => $request->user_id,
+            'expense_type'       => $request->expense_type,
+            'other_expense_name' => $request->other_expense_name,
+            'expense_amount'     => $request->expense_amount,
+            'expense_date'       => Carbon::now(), // ✅ current date & time
+            'image'              => $imagePath,
+            'action'             => '0',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => $validator->errors()->first(),
-            ], 422);
-        }
+        DB::commit();
 
-        try {
-            DB::beginTransaction();
+        return response()->json([
+            'status'  => true,
+            'message' => 'Expense added successfully',
+            'data'    => $expense,
+        ], 201);
 
-            $imagePath = null;
-            if ($request->hasFile('image')) {
-                $imagePath = $request->file('image')->store('expenses', 'public');
-            }
-
-            $expense = Expense::create([
-                'user_id'            => $request->user_id,
-                'expense_type'       => $request->expense_type,
-                'other_expense_name' => $request->other_expense_name,
-                'expense_amount'     => $request->expense_amount,
-                'expense_date'       => $request->expense_date,
-                'image'              => $imagePath,
-                'action'             => '0', // Active
-            ]);
-
-            DB::commit();
-
-            return response()->json([
-                'status'  => true,
-                'message' => 'Expense added successfully',
-                'data'    => $expense,
-            ], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'status'  => false,
-                'message' => 'Failed to add expense: ' . $e->getMessage(),
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'status'  => false,
+            'message' => 'Failed to add expense: ' . $e->getMessage(),
+        ], 500);
     }
+}
+
 
     /**
      * Get expenses for a user.

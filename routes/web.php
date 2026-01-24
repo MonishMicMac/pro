@@ -9,6 +9,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DigitalMarketing\DigitalMarketingLeadController;
 use App\Http\Controllers\Master\ProductController;
 use App\Http\Controllers\FabricatorDashboardController;
+use App\Http\Controllers\TourPlanController;
+use App\Http\Controllers\BdmTourPlanController;
+use App\Http\Controllers\BdoConsolidateReportController;
+use App\Http\Controllers\BdmConsolidateReportController;
+
 
 // Public Routes
 Route::get('login', [LoginController::class, 'index'])->name('login');
@@ -246,6 +251,7 @@ Route::get('handover-report/data', [App\Http\Controllers\HandoverReportControlle
 
 
 Route::get('bdo-performance-report', [App\Http\Controllers\BdoPerformanceReportController::class, 'index'])->name('bdo_performance.report');
+Route::get('bdo-performance-report/location-data', [App\Http\Controllers\BdoPerformanceReportController::class, 'getHierarchicalData'])->name('bdo_performance.report.location-data');
 Route::get('bdo-performance-report/data', [App\Http\Controllers\BdoPerformanceReportController::class, 'data'])->name('bdo_performance.report.data');
 
 
@@ -254,3 +260,67 @@ Route::get('prospect-report', [App\Http\Controllers\ProspectController::class, '
 
 Route::get('prospect-report/data', [App\Http\Controllers\ProspectController::class, 'data'])
     ->name('prospect.report.data');
+    
+Route::get('bdo-targets/data', [App\Http\Controllers\BdoTargetController::class, 'getData'])->name('bdo-targets.data');
+Route::resource('bdo-targets', App\Http\Controllers\BdoTargetController::class);
+
+Route::prefix('tourplan-report')->name('tour-plans.')->group(function () {
+        
+        // 1. View Page
+        // Usage: route('tour-plans.index')
+        Route::get('/', [TourPlanController::class, 'index'])
+            ->name('index')
+            ->middleware(['permission:tourplan-report.view']);
+
+        // 2. Main Table Data (AJAX for DataTable)
+        // Usage: route('tour-plans.data')
+        Route::get('/data', [TourPlanController::class, 'getData'])
+            ->name('data')
+            ->middleware(['permission:tourplan-report.view']);
+
+        // 3. Modal Details (AJAX for Joint/Individual Work)
+        // Usage: route('tour-plans.details')
+        Route::get('/details', [TourPlanController::class, 'getDetails'])
+            ->name('details')
+            ->middleware(['permission:tourplan-report.view']);
+            
+    });
+
+    Route::prefix('bdm-tourplan-report')->name('bdm-tour-plans.')->group(function () {
+        
+        Route::get('/', [BdmTourPlanController::class, 'index'])
+            ->name('index')
+            ->middleware(['permission:tourplan-report.view']); // Or create a specific bdm permission
+
+        Route::get('/data', [BdmTourPlanController::class, 'getData'])
+            ->name('data')
+            ->middleware(['permission:tourplan-report.view']);
+
+        Route::get('/details', [BdmTourPlanController::class, 'getDetails'])
+            ->name('details')
+            ->middleware(['permission:tourplan-report.view']);
+            
+    });
+
+    // Prefix: /bdo-consolidate-report
+    Route::prefix('bdo-consolidate-report')->name('bdo-consolidate.')->group(function () {
+        
+        Route::get('/', [BdoConsolidateReportController::class, 'index'])
+            ->name('index')
+            ->middleware(['permission:tourplan-report.view']); // Or create specific permission
+
+        Route::get('/data', [BdoConsolidateReportController::class, 'getData'])
+            ->name('data')
+            ->middleware(['permission:tourplan-report.view']);
+    });
+
+    Route::prefix('bdm-consolidate-report')->name('bdm-consolidate.')->group(function () {
+        
+        Route::get('/', [BdmConsolidateReportController::class, 'index'])
+            ->name('index')
+            ->middleware(['permission:tourplan-report.view']); 
+
+        Route::get('/data', [BdmConsolidateReportController::class, 'getData'])
+            ->name('data')
+            ->middleware(['permission:tourplan-report.view']);
+    });

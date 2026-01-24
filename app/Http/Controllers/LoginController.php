@@ -51,11 +51,7 @@ class LoginController extends Controller
             'password' => $request->password
         ];
 
-        // FABRICATOR credentials (mobile)
-        $fabricatorCredentials = [
-            'mobile' => $request->username, // same input field
-            'password' => $request->password
-        ];
+
 
         // 1️⃣ Try USERS table
         if (Auth::guard('web')->attempt($userCredentials)) {
@@ -64,7 +60,10 @@ class LoginController extends Controller
         }
 
         // 2️⃣ Try FABRICATORS table (mobile)
-        if (Auth::guard('fabricator')->attempt($fabricatorCredentials)) {
+        if (Auth::guard('fabricator')->attempt([
+            'mobile' => $request->username,
+            'password' => $request->password,
+        ])) {
             $request->session()->regenerate();
             return redirect()->route('fabricator.dashboard');
         }

@@ -100,9 +100,13 @@ class ProspectController extends Controller
             ->editColumn(
                 'created_at',
                 fn($r) =>
-                $r->created_at->format('d-m-Y h:i A')
+                $r->created_at->format('d-m-Y')
             )
-
+            ->editColumn('assigned_at', function ($row) {
+                return $row->assigned_at
+                    ? \Carbon\Carbon::parse($row->assigned_at)->format('d-m-Y h:i A')
+                    : '-';
+            })
             ->make(true);
     }
 }

@@ -9,13 +9,21 @@ use App\Models\Fabricator;
 use Validator;
 use App\Models\MeasurementDetail;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Helpers\S3UploadHelper;
+use Illuminate\Support\Facades\Storage;
+
+
 
 
 class FabricatorDashboardController extends Controller
 {
+    use AuthorizesRequests;
 
     public function index()
     {
+
         $fabricator = Auth::guard('fabricator')->user();
 
         $id = $fabricator->id;
@@ -104,7 +112,10 @@ class FabricatorDashboardController extends Controller
         // If ajax request (datatable)
         if ($request->ajax()) {
 
-            $query = FabricatorRequest::with('lead')
+            $query = FabricatorRequest::with([
+                'lead:id,name,user_id',
+                'lead.assignedUser:id,name'
+            ])
                 ->where('fabricator_id', $fabricatorId);
 
             // STATUS FILTER
@@ -124,23 +135,39 @@ class FabricatorDashboardController extends Controller
             return datatables()->of($query)
                 ->addColumn('lead', fn($r) => $r->lead->name)
 
+                ->addColumn('bdo', fn($r) => $r->lead->assignedUser->name ?? '-')
+
                 ->editColumn('status', function ($r) {
                     return $r->status == '0'
                         ? '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px]">Pending</span>'
                         : '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px]">Completed</span>';
                 })
-
+                ->addColumn('approx_sqft', fn($r) => $r->approx_sqft ?? '-')
                 ->editColumn('created_at', fn($r) => $r->created_at->format('d/m/Y'))
+
+                ->addColumn('quotation_pdf', function ($r) {
+                    if (!$r->fabrication_pdf) {
+                        return '<span class="text-slate-400 text-xs">Not Uploaded</span>';
+                    }
+
+                    $url = Storage::disk('s3')->url($r->fabrication_pdf);
+
+                    return '
+            <a href="' . $url . '" target="_blank" class="text-emerald-600">
+                <span class="material-symbols-outlined">picture_as_pdf</span>
+            </a>
+        ';
+                })
 
                 ->addColumn('view', function ($r) {
                     return '
-                <a href="' . route('fabricator.measurements', $r->lead_id) . '" 
-                   class="text-blue-600">
-                    <span class="material-symbols-outlined">visibility</span>
-                </a>';
+            <a href="' . route('fabricator.measurements', $r->lead_id) . '" class="text-blue-600">
+                <span class="material-symbols-outlined">visibility</span>
+            </a>';
                 })
 
-                ->rawColumns(['status', 'view'])
+
+                ->rawColumns(['status', 'quotation_pdf', 'view'])
                 ->make(true);
         }
 
@@ -154,11 +181,16 @@ class FabricatorDashboardController extends Controller
 
         $measurements = MeasurementDetail::where('lead_id', $leadId)->get();
 
+        $fabricatorRequest = FabricatorRequest::where('lead_id', $leadId)
+            ->where('fabricator_id', auth('fabricator')->id())
+            ->first();
+
         return view(
             'fabricator.measurements',
-            compact('measurements', 'lead')
+            compact('measurements', 'lead', 'fabricatorRequest')
         );
     }
+
 
 
 
@@ -169,6 +201,7 @@ class FabricatorDashboardController extends Controller
             'lead_id'       => 'required|exists:leads,id',
             'fabricator_id' => 'required|exists:fabricators,id',
             'rate_per_sqft' => 'required|numeric|min:0',
+            'total_quotation_amount'  => 'required|numeric|min:0',
             'pdf_file'      => 'required|file|mimes:pdf|max:10240',
         ]);
 
@@ -186,19 +219,19 @@ class FabricatorDashboardController extends Controller
 
             $file = $request->file('pdf_file');
 
-            // Check for PHP system errors during upload
             if (!$file->isValid()) {
                 throw new \Exception("System Upload Error: " . $file->getErrorMessage());
             }
 
-            $fileName = 'fab_' . $request->lead_id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            /**
+             * Upload to S3 → quotation folder
+             */
+            $upload = S3UploadHelper::upload(
+                $file,
+                'quotation'   // 👈 folder name in S3
+            );
 
-            // Store the file and verify success
-            $path = $file->storeAs('fabrication_docs', $fileName, 'public');
 
-            if (!$path) {
-                throw new \Exception("Failed to write file to disk. Check storage folder permissions.");
-            }
 
             // Update Record
             $fabRequest = \App\Models\FabricatorRequest::where('lead_id', $request->lead_id)
@@ -206,14 +239,18 @@ class FabricatorDashboardController extends Controller
                 ->firstOrFail();
 
             $fabRequest->update([
-                'fabrication_pdf' => $path,
+                'fabrication_pdf'        => $upload['path'],
                 'rate_per_sqft'   => $request->rate_per_sqft,
+                'total_quotation_amount'   => $request->total_quotation_amount,
                 'status'          => '1'
             ]);
 
             // Update Lead Stage to 4
-            $lead = \App\Models\Lead::find($request->lead_id);
-            $lead->update(['lead_stage' => 4]);
+            $lead = \App\Models\Lead::findOrFail($request->lead_id);
+            $lead->update([
+                'lead_stage' => 4,
+                'total_quotation_amount'   => $request->total_quotation_amount
+            ]);
 
             \App\Helpers\LeadHelper::logStatus($lead, $lead->building_status, 4);
 
@@ -227,7 +264,7 @@ class FabricatorDashboardController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Quotation uploaded successfully',
-                'pdf_url' => asset('storage/' . $path)
+                'pdf_url' => $upload['url']
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();

@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.fabricator')
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
     rel="stylesheet" />
@@ -8,14 +8,7 @@
 
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-5">
-                <a href="{{ route('masters.fabricators.index') }}"
-                    class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-slate-400 hover:text-blue-600 shadow-sm hover:shadow-md transition-all border border-slate-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                </a>
+
                 <div>
                     <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Fabricator Details</h1>
                     <p class="text-sm text-slate-500 font-medium">Viewing master record for <span

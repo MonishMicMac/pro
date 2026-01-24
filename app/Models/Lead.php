@@ -54,7 +54,9 @@ class Lead extends Model
         'brand_id',
         'priority',
         'lead_temperature',
-        'fabricator_id'
+        'fabricator_id',
+        'google_review',
+        'total_quotation_amount'
     ];
 
     protected $casts = [
@@ -103,5 +105,33 @@ class Lead extends Model
     public function fabricator()
     {
         return $this->belongsTo(Fabricator::class, 'fabricator_id');
+    }
+    
+    public function user() {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function zoneRelation() {
+        return $this->belongsTo(Zone::class, 'zone'); // Assuming column is 'zone'
+    }
+
+    public function stateRelation() {
+        return $this->belongsTo(State::class, 'state_id');
+    }
+
+    public function districtRelation() {
+        return $this->belongsTo(District::class, 'district_id');
+    }
+
+    public function cityRelation() {
+        return $this->belongsTo(City::class, 'city_id');
+    }
+
+    public function areaRelation() {
+        return $this->belongsTo(Area::class, 'area_id');
+    }
+
+    public function pincodeRelation() {
+        return $this->belongsTo(Pincodes::class, 'pincode_id');
     }
 }

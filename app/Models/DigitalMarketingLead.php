@@ -87,4 +87,10 @@ class DigitalMarketingLead extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+
+    public function transferer(): BelongsTo
+{
+    return $this->belongsTo(User::class, 'transfered_by');
+}
+
 }

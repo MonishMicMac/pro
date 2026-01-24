@@ -47,7 +47,7 @@ Route::post('/bdm/lead-list', [BdmController::class, 'getBdmTeamLeadList']);
 Route::post('bdm/lead-details', [BdmController::class, 'getLeadDetailsForBdm']);
 Route::post('bdm/team-details', [BdmController::class, 'getBdmTeamReport']);
 Route::post('bdm/km-coverage', [BdmController::class, 'getKmCoverage']);
-
+Route::post('bdm/dashboard', [BdmController::class, 'getBdmDashboard']);
 Route::get('/zones/list', [BdmController::class, 'getZoneList']);
 
 

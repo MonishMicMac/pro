@@ -19,6 +19,7 @@ class Account extends Model
         'district_id',
         'pincode',
         'account_type_id',
+        'user_id',
         'action'
     ];
 

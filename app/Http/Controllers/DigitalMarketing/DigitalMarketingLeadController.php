@@ -18,75 +18,77 @@ class DigitalMarketingLeadController extends Controller
 {
     use AuthorizesRequests;
 
-    public function index(Request $request)
-    {
-        $this->authorize('leads.view');
+   public function index(Request $request)
+{
+    $this->authorize('leads.view');
 
-        $buildingTypes = \App\Helpers\LeadHelper::getBuildingTypes();
-        $leadStages    = \App\Helpers\LeadHelper::getLeadStages();
+    $buildingTypes = \App\Helpers\LeadHelper::getBuildingTypes();
+    $leadStages    = \App\Helpers\LeadHelper::getLeadStages();
 
-        if ($request->ajax()) {
-            $query = DigitalMarketingLead::with(['assignedUser', 'zoneDetails', 'status', 'type', 'lead']);
+    if ($request->ajax()) {
+        // UPDATED: Added 'transferer' to the with() array
+        $query = DigitalMarketingLead::with(['assignedUser', 'zoneDetails', 'status', 'type', 'lead', 'transferer']);
 
-            // Filter by Stage
-            if ($request->filled('stage')) {
-                $query->where('stage', $request->stage);
-            }
-
-            // Filter by Future Follow Up Date
-            if ($request->filled('future_date')) {
-                $query->whereDate('future_follow_up_date', $request->future_date);
-            }
-
-            // Filter by Potential Follow Up Date
-            if ($request->filled('potential_date')) {
-                $query->whereDate('potential_follow_up_date', $request->potential_date);
-            }
-
-            $data = $query->latest();
-
-            return DataTables::of($data)
-                ->addIndexColumn()
-                ->setRowId(function ($row) {
-                    return $row->id; // Explicitly returning the value
-                })
-                ->editColumn('date', function ($row) {
-                    return $row->date ? \Carbon\Carbon::parse($row->date)->format('d-m-Y') : '-';
-                })
-                ->editColumn('future_follow_up_date', function ($row) {
-                    if (!$row->future_follow_up_date) return '-';
-                    $time = $row->future_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->future_follow_up_time)->format('h:i A') : '';
-                    return \Carbon\Carbon::parse($row->future_follow_up_date)->format('d-m-Y') . $time;
-                })
-                ->editColumn('potential_follow_up_date', function ($row) {
-                    if (!$row->potential_follow_up_date) return '-';
-                    $time = $row->potential_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->potential_follow_up_time)->format('h:i A') : '';
-                    return \Carbon\Carbon::parse($row->potential_follow_up_date)->format('d-m-Y') . $time;
-                })
-                ->editColumn('stage', function ($row) use ($leadStages) {
-                    return $leadStages[$row->stage] ?? '-';
-                })
-                ->editColumn('building_type', function ($row) use ($buildingTypes) {
-                    return $buildingTypes[$row->building_type] ?? '-';
-                })
-                ->rawColumns(['otp_status'])
-                ->make(true);
+        // Filter by Stage
+        if ($request->filled('stage')) {
+            $query->where('stage', $request->stage);
         }
 
-        $users = User::all();
-        $zones = Zone::where('action', '0')->get();
-        $buildingStatuses = BuildingStatus::where('action', 0)->get();
-        $customerTypes = CustomerType::where('action', 0)->get();
+        // Filter by Future Follow Up Date
+        if ($request->filled('future_date')) {
+            $query->whereDate('future_follow_up_date', $request->future_date);
+        }
 
-        return view('marketing.leads.index', compact(
-            'users',
-            'zones',
-            'buildingTypes',
-            'leadStages',
-            'buildingStatuses',
-            'customerTypes'
-        ));
+        // Filter by Potential Follow Up Date
+        if ($request->filled('potential_date')) {
+            $query->whereDate('potential_follow_up_date', $request->potential_date);
+        }
+
+        $data = $query->latest();
+
+        return DataTables::of($data)
+            ->addIndexColumn()
+            ->setRowId(function ($row) {
+                return $row->id; 
+            })
+            ->editColumn('date', function ($row) {
+                return $row->date ? \Carbon\Carbon::parse($row->date)->format('d-m-Y') : '-';
+            })
+            ->editColumn('future_follow_up_date', function ($row) {
+                if (!$row->future_follow_up_date) return '-';
+                $time = $row->future_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->future_follow_up_time)->format('h:i A') : '';
+                return \Carbon\Carbon::parse($row->future_follow_up_date)->format('d-m-Y') . $time;
+            })
+            ->editColumn('potential_follow_up_date', function ($row) {
+                if (!$row->potential_follow_up_date) return '-';
+                $time = $row->potential_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->potential_follow_up_time)->format('h:i A') : '';
+                return \Carbon\Carbon::parse($row->potential_follow_up_date)->format('d-m-Y') . $time;
+            })
+            ->editColumn('stage', function ($row) use ($leadStages) {
+                return $leadStages[$row->stage] ?? '-';
+            })
+            ->editColumn('building_type', function ($row) use ($buildingTypes) {
+                return $buildingTypes[$row->building_type] ?? '-';
+            })
+            // IMPORTANT: Ensure these raw columns are allowed to render HTML
+            ->rawColumns(['otp_status', 'name', 'lead_id']) 
+            ->make(true);
     }
+
+    $users = User::all();
+    $zones = Zone::where('action', '0')->get();
+    $buildingStatuses = BuildingStatus::where('action', 0)->get();
+    $customerTypes = CustomerType::where('action', 0)->get();
+
+    return view('marketing.leads.index', compact(
+        'users',
+        'zones',
+        'buildingTypes',
+        'leadStages',
+        'buildingStatuses',
+        'customerTypes'
+    ));
+}
 
     public function store(Request $request)
     {

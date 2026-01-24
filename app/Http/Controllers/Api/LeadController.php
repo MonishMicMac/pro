@@ -423,10 +423,10 @@ public function leadCheckIn(Request $request)
                     // Find the existing Digital Marketing Lead by lead_id
                     $digitalLead = DigitalMarketingLead::where('lead_id', $lead->id)->first();
 
-                 
+               
                     if ($digitalLead) {
                         $digitalLead->update([
-                            'stage'                        => '0',
+                            'stage'                        => 0,
                             'transfered_by'                => $lead->user_id, // Ensure lead table has user_id
                             'transfered_date'              => Carbon::now(),
                             'transfter_remarks'            => $request->remarks,

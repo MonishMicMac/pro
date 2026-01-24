@@ -13,6 +13,8 @@ use App\Http\Controllers\TourPlanController;
 use App\Http\Controllers\BdmTourPlanController;
 use App\Http\Controllers\BdoConsolidateReportController;
 use App\Http\Controllers\BdmConsolidateReportController;
+use App\Http\Controllers\BdoJointWorkReportController;
+
 
 
 // Public Routes
@@ -321,6 +323,17 @@ Route::prefix('tourplan-report')->name('tour-plans.')->group(function () {
             ->middleware(['permission:tourplan-report.view']); 
 
         Route::get('/data', [BdmConsolidateReportController::class, 'getData'])
+            ->name('data')
+            ->middleware(['permission:tourplan-report.view']);
+    });
+
+    Route::prefix('bdo-joint-visit-report')->name('bdo-joint-visits.')->group(function () {
+        
+        Route::get('/', [BdoJointWorkReportController::class, 'index'])
+            ->name('index')
+            ->middleware(['permission:tourplan-report.view']); // Use appropriate permission
+
+        Route::get('/data', [BdoJointWorkReportController::class, 'getData'])
             ->name('data')
             ->middleware(['permission:tourplan-report.view']);
     });

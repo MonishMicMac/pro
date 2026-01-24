@@ -9,6 +9,8 @@ use App\Models\LeadVisit;
 use App\Models\LeadVisitBdm;
 use App\Models\UserMapping;
 use App\Models\User;
+use App\Models\Fabricator;
+use App\Models\Account;
 use App\Models\Lead;
 use App\Models\Zone;
 use App\Models\Brand;
@@ -29,6 +31,128 @@ class BdmController extends Controller
 {
 
 /**
+     * Get BDM Dashboard Data
+     */
+    public function getBdmDashboard(Request $request)
+    {
+        // 1. Validate Inputs
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'date'    => 'required|date_format:Y-m-d',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 200);
+        }
+
+        try {
+            $userId = $request->user_id;
+            $date   = $request->date;
+
+            // ====================================================
+            // 1. ATTENDANCE (For the BDM themselves)
+            // ====================================================
+            $attendance = UserAttendance::where('user_id', $userId)
+                ->where('date', $date)
+                ->first();
+
+            $attendanceData = [
+                'punch_in'  => $attendance && $attendance->punch_in_time ? true : false,
+                'punch_out' => $attendance && $attendance->punch_out_time ? true : false,
+                'intime'    => $attendance ? $attendance->punch_in_time : null,
+                'outtime'   => $attendance ? $attendance->punch_out_time : null,
+            ];
+
+            // ====================================================
+            // 2. SCHEDULE & COVERAGE (For the BDM's own visits)
+            // ====================================================
+            $visits = LeadVisitBdm::where('user_id', $userId)
+                ->whereDate('schedule_date', $date)
+                ->get();
+
+            $plannedTotal    = $visits->where('type', 'planned')->count();
+            $plannedVisited  = $visits->where('type', 'planned')->where('action', '1')->count();
+            $plannedMissed   = $visits->where('type', 'planned')->where('action', '0')->count();
+            $unplannedTotal  = $visits->where('type', 'unplanned')->count();
+
+            // Distance Calculation
+            $startKm = $attendance ? (float)$attendance->start_km : 0;
+            $endKm   = $attendance ? (float)$attendance->end_km : 0;
+            $distanceCovered = ($endKm > $startKm) ? ($endKm - $startKm) : 0;
+
+            // ====================================================
+            // 3. ACTIVITY SECTION
+            // ====================================================
+            
+            // A. LEADS: Fetch based on ASSIGNED BDOs (Team)
+            $bdoIds = UserMapping::where('bdm_id', $userId)
+                ->where('action', '0') // Active mappings only
+                ->pluck('bdo_id')
+                ->toArray();
+            
+            $leadCount = Lead::whereIn('user_id', $bdoIds)->count();
+
+            // B. ACCOUNTS: Fetch based on BDM ID (Self)
+            $accountCount = Account::where('user_id', $userId)->count();
+
+            // C. FABRICATORS: Fetch based on BDM ID (Self)
+            $fabricatorCount = Fabricator::where('created_by', $userId)->count();
+
+
+            // ====================================================
+            // 4. CONSTRUCT RESPONSE
+            // ====================================================
+            $data = [
+                'attendance' => $attendanceData,
+                
+                'schedule' => [
+                    'planned'   => $plannedTotal,
+                    'visited'   => $plannedVisited,
+                    'missed'    => $plannedMissed,
+                    'unplanned' => $unplannedTotal,
+                ],
+
+                'activity' => [
+                    'lead'       => $leadCount,       // Team Leads
+                    'account'    => $accountCount,    // Own Accounts
+                    'fabricator' => $fabricatorCount, // Own Fabricators
+                    'reports'    => 0, 
+                ],
+
+                'overall_monthly_target' => [
+                    'amount' => 500000, 
+                    'month'  => Carbon::parse($date)->format('F Y'),
+                ],
+
+                'achievement' => [
+                    'amount'     => 350000, 
+                    'percentage' => 70,    
+                ],
+
+                'target_progress' => [
+                    'total_outstanding' => 150000, 
+                    'conversion_rate'   => 12.5,  
+                ],
+
+                'coverage' => [
+                    'distance'      => $distanceCovered . ' km',
+                    'km'            => $distanceCovered,
+                    'schedule_beat' => $plannedVisited . '/' . $plannedTotal, 
+                ]
+            ];
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Dashboard data retrieved successfully',
+                'data'    => $data
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Get BDM Profile Details
      */
     public function getBdmProfile(Request $request)

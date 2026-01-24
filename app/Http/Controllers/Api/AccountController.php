@@ -130,6 +130,8 @@ class AccountController extends Controller
             'state_id' => 'required|exists:states,id',
             'district_id' => 'required|exists:districts,id',
             'account_type_id' => 'required|exists:account_types,id',
+            'user_id' => 'required',
+
         ]);
 
         $account = Account::create($request->all() + ['action' => '0']);

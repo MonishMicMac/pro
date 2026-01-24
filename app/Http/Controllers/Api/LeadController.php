@@ -332,10 +332,10 @@ public function leadCheckIn(Request $request)
             $rules['follow_up_date'] = 'required|date|after_or_equal:today';
         }
         elseif ($request->action_type == 'won') {
-            $rules['per_sq_ft_rate']             = 'required|numeric';
+    
             $rules['expected_installation_date'] = 'required|date';
             $rules['advance_received']           = 'required|numeric';
-            $rules['final_quotation_pdf']        = 'nullable|mimes:pdf|max:5120';
+           
         }
         elseif ($request->action_type == 'lost') {
             $rules['lost_type']  = 'required|string';
@@ -423,6 +423,7 @@ public function leadCheckIn(Request $request)
                     // Find the existing Digital Marketing Lead by lead_id
                     $digitalLead = DigitalMarketingLead::where('lead_id', $lead->id)->first();
 
+                    
                
                     if ($digitalLead) {
                         $digitalLead->update([
@@ -486,12 +487,10 @@ public function leadCheckIn(Request $request)
                     }
                     $lead->update([
                         'lead_stage'                 => 5,
-                        'rate_per_sqft'              => $request->per_sq_ft_rate,
                         'won_date'                   => Carbon::today(),
                         'expected_installation_date' => $request->expected_installation_date,
-                        'advance_received'           => $request->advance_received,
-                        'final_quotation_pdf'        => $pdfPath,
-                        'status'                     => 'Won'
+                        'advance_received'           => $request->advance_received
+                        
                     ]);
                     break;
 

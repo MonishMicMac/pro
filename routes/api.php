@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Users\FabricatorProfileController;
 use App\Http\Controllers\Api\Users\ReportController;
 use App\Http\Controllers\Api\FabricatorProjectionController;
 use App\Http\Controllers\Api\BdmController;
+use App\Http\Controllers\Api\BdmCallController;
 
 
 
@@ -48,6 +49,7 @@ Route::post('bdm/lead-details', [BdmController::class, 'getLeadDetailsForBdm']);
 Route::post('bdm/team-details', [BdmController::class, 'getBdmTeamReport']);
 Route::post('bdm/km-coverage', [BdmController::class, 'getKmCoverage']);
 Route::post('bdm/dashboard', [BdmController::class, 'getBdmDashboard']);
+Route::post('bdm/daily-report', [BdmController::class, 'getBdmDailyReport']);
 Route::get('/zones/list', [BdmController::class, 'getZoneList']);
 
 
@@ -145,4 +147,5 @@ use App\Http\Controllers\Api\S3Controller;
 Route::post('/upload-image', [S3Controller::class, 'upload']);
 Route::get('/files', [S3Controller::class, 'list']);
 
-
+Route::post('/bdm-calls/store', [BdmCallController::class, 'store']);
+Route::get('/bdm-calls/list', [BdmCallController::class, 'list']); // Pass ?user_id=12

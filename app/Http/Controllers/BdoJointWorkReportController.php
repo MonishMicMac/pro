@@ -11,41 +11,39 @@ use Carbon\Carbon;
 
 class BdoJointWorkReportController extends Controller
 {
-    /**
-     * Display the Joint Work Report Page
-     */
     public function index()
     {
-        // Fetch BDOs for the filter dropdown
         $bdos = User::role('BDO')->orderBy('name')->get(['id', 'name']);
-        
-        // Fetch BDMs for the filter (Optional, if you want to filter by Partner)
+        // Fetch BDMs (Managers)
         $bdms = User::role('BDM')->orderBy('name')->get(['id', 'name']);
 
         return view('bdo_joint_work.index', compact('bdos', 'bdms'));
     }
 
-    /**
-     * Get Data for DataTable
-     */
     public function getData(Request $request)
     {
-        // 1. Base Query: Fetch only "Joint Work" visits
-        // We assume 'bdm' relationship exists in LeadVisit (belongsTo User as 'bdm_id')
-        $query = LeadVisit::with(['user', 'bdm', 'lead', 'account', 'fabricator'])
-            ->where('work_type', 'Joint Work')
+        // Eager load relationships
+        $query = LeadVisit::with(['user', 'bdm', 'lead', 'account', 'fabricator', 'jointWorkRequest.bdm'])
             ->select('lead_visits.*');
 
-        // --- FILTERS ---
+        // CORE LOGIC: Show if 'Joint Work' OR has a Request
+        $query->where(function($q) {
+            $q->where('work_type', 'Joint Work')
+              ->orWhereHas('jointWorkRequest');
+        });
 
-        // Filter by BDO
+        // --- FILTERS ---
         if ($request->filled('bdo_id')) {
             $query->where('user_id', $request->bdo_id);
         }
 
-        // Filter by Partner (BDM)
         if ($request->filled('bdm_id')) {
-            $query->where('bdm_id', $request->bdm_id);
+            $query->where(function($q) use ($request) {
+                $q->where('bdm_id', $request->bdm_id) // Direct Assignment
+                  ->orWhereHas('jointWorkRequest', function($sq) use ($request) {
+                      $sq->where('bdm_id', $request->bdm_id); // Requested Manager
+                  });
+            });
         }
 
         // Date Range
@@ -57,21 +55,26 @@ class BdoJointWorkReportController extends Controller
             $query->where('schedule_date', '<=', $request->end_date);
         }
 
-        // --- DATATABLE RESPONSE ---
         return DataTables::of($query)
             ->addIndexColumn()
             ->editColumn('schedule_date', function ($row) {
                 return $row->schedule_date ? Carbon::parse($row->schedule_date)->format('d M Y') : '-';
             })
-            // Column: The BDO (Primary User)
             ->addColumn('bdo_name', function ($row) {
-                return $row->user ? $row->user->name : '<span class="text-slate-400 italic">Unknown</span>';
+                return $row->user ? $row->user->name : '-';
             })
-            // Column: The Partner (BDM)
-            ->addColumn('partner_name', function ($row) {
-                return $row->bdm ? $row->bdm->name : '<span class="text-slate-400 italic">N/A</span>';
+            // RENAMED COLUMN: manager_name
+            ->addColumn('manager_name', function ($row) {
+                // 1. If BDM is already assigned in the main table
+                if ($row->bdm) {
+                    return $row->bdm->name;
+                }
+                // 2. If not assigned, show who was Requested
+                if ($row->jointWorkRequest && $row->jointWorkRequest->bdm) {
+                    return $row->jointWorkRequest->bdm->name . ' <span class="text-[9px] text-slate-400">(Req)</span>';
+                }
+                return '<span class="text-slate-400 italic">N/A</span>';
             })
-            // Column: Client Type (Lead/Account/Fabricator)
             ->addColumn('client_type', function ($row) {
                 return match((string)$row->visit_type) {
                     '1' => '<span class="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">Account</span>',
@@ -80,30 +83,40 @@ class BdoJointWorkReportController extends Controller
                     default => '<span class="text-slate-400">Unknown</span>'
                 };
             })
-            // Column: Client Name
             ->addColumn('client_name', function ($row) {
                 if ($row->visit_type == '1') return $row->account->name ?? '-';
                 if ($row->visit_type == '2') return $row->lead->name ?? '-';
                 if ($row->visit_type == '3') return $row->fabricator->shop_name ?? '-';
                 return '-';
             })
-            // Column: Status
-            ->addColumn('status', function ($row) {
-                // Assuming action '2' or '1' means visited. Adjust based on your specific ID logic.
-                // Commonly: 0=Pending, 1/2=Visited
-                if ($row->action == '0') {
-                    return '<span class="inline-flex items-center gap-1 text-amber-500 font-bold text-[10px] uppercase"><span class="material-symbols-outlined text-[14px]">schedule</span> Pending</span>';
+            // Request Status Column
+            ->addColumn('request_status', function ($row) {
+                // A. Has a specific Request record
+                if ($row->jointWorkRequest) {
+                    $status = $row->jointWorkRequest->status; 
+                    if ($status == '0') return '<span class="px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold uppercase border border-amber-200">Pending</span>';
+                    if ($status == '1') return '<span class="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase border border-emerald-200">Approved</span>';
+                    if ($status == '2') return '<div class="flex flex-col"><span class="px-2 py-1 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold uppercase border border-red-200 w-fit">Declined</span><span class="text-[9px] text-slate-400 font-semibold mt-0.5">Individual Work</span></div>';
                 }
-                return '<span class="inline-flex items-center gap-1 text-emerald-600 font-bold text-[10px] uppercase"><span class="material-symbols-outlined text-[14px]">check_circle</span> Visited</span>';
+
+                // B. No Request record, but marked as Joint Work in main table
+                if ($row->work_type == 'Joint Work') {
+                    return '<span class="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold uppercase border border-slate-200">Direct Joint</span>';
+                }
+
+                return '<span class="text-slate-300 text-[10px]">Individual</span>';
             })
-            // Column: Location/Address
+            ->addColumn('visit_status', function ($row) {
+                if ($row->action == '0') return '<span class="inline-flex items-center gap-1 text-slate-400 font-bold text-[10px] uppercase"><span class="material-symbols-outlined text-[14px]">schedule</span> Pending Visit</span>';
+                return '<span class="inline-flex items-center gap-1 text-blue-600 font-bold text-[10px] uppercase"><span class="material-symbols-outlined text-[14px]">check_circle</span> Completed</span>';
+            })
             ->addColumn('location', function ($row) {
                 if ($row->visit_type == '1') return $row->account->address ?? '-';
                 if ($row->visit_type == '2') return $row->lead->site_address ?? '-';
                 if ($row->visit_type == '3') return $row->fabricator->address ?? '-';
                 return '-';
             })
-            ->rawColumns(['bdo_name', 'partner_name', 'client_type', 'status'])
+            ->rawColumns(['bdo_name', 'manager_name', 'client_type', 'request_status', 'visit_status'])
             ->make(true);
     }
 }

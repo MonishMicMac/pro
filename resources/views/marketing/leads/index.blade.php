@@ -447,7 +447,7 @@
                 $('#potential_follow_up_section').removeClass('hidden');
             } else if (stageValue == '2') { // Disqualified
                 $('#disqualified_reason_section').removeClass('hidden');
-            } else if (stageValue == '0') { // RNR
+            } else if (stageValue == '7') { // RNR
                 $('#rnr_reason_section').removeClass('hidden');
             }
         }

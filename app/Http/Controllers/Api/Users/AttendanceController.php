@@ -82,53 +82,67 @@ class AttendanceController extends Controller
 public function punchOut(Request $request)
 {
     $validator = Validator::make($request->all(), [
-        'attendance_id'         => 'required|exists:users_attendances,id', // Use ID from Punch In response
-        'out_lat'               => 'required',
-        'out_long'              => 'required',
-        'end_km'                => 'required',
-        'out_time_vehicle_type' => 'required|in:1,2,3',
-        'end_km_photo'          => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        'user_id'                => 'required|exists:users,id',
+        'out_lat'                => 'required',
+        'out_long'               => 'required',
+        'end_km'                 => 'required',
+        'out_time_vehicle_type'  => 'required|in:1,2,3',
+        'end_km_photo'           => 'required|image|mimes:jpeg,png,jpg|max:2048',
     ]);
 
     if ($validator->fails()) {
-        return response()->json(['status' => "false", 'message' => $validator->errors()->first()], 422);
+        return response()->json([
+            'status'  => false,
+            'message' => $validator->errors()->first()
+        ], 422);
     }
 
-    // 1. Find the specific record by ID
-    $attendance = UserAttendance::find($request->attendance_id);
+    $userId = $request->user_id;
+    $date   = Carbon::now('Asia/Kolkata')->toDateString();
 
-    // 2. Security Check: Ensure this attendance belongs to the logged-in user
-    if ($attendance->user_id !== $request->user()->id) {
-        return response()->json(['status' => "false", 'message' => 'Unauthorized.'], 403);
+    // 1️⃣ Fetch today's attendance for this user
+    $attendance = UserAttendance::where('user_id', $userId)
+        ->where('date', $date)
+        ->first();
+
+    if (!$attendance) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Punch-in not found for today.'
+        ], 404);
     }
 
-    // 3. Status Check: Ensure they haven't already punched out
-    if ($attendance->status === '1') {
-        return response()->json(['status' => "false", 'message' => 'Already punched out for this record.'], 400);
+    // 2️⃣ Already punched out check
+    if ($attendance->status == '1') {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Already punched out for today.'
+        ], 400);
     }
 
-    // 4. Handle Image Upload
+    // 3️⃣ Image upload
     $photoName = null;
     if ($request->hasFile('end_km_photo')) {
-        $path = $request->file('end_km_photo')->store('users_punch_out_images', 'public');
+        $path = $request->file('end_km_photo')
+            ->store('users_punch_out_images', 'public');
         $photoName = basename($path);
     }
 
-    // 5. Update Record
+    // 4️⃣ Update attendance
     $attendance->update([
-        'punch_out_time'        => Carbon::now()->format('H:i:s'),
+        'punch_out_time'        => Carbon::now('Asia/Kolkata')->format('H:i:s'),
         'out_lat'               => $request->out_lat,
         'out_long'              => $request->out_long,
         'end_km'                => $request->end_km,
         'end_km_photo'          => $photoName,
         'out_time_vehicle_type' => $request->out_time_vehicle_type,
-        'status'                => '1', 
+        'status'                => '1',
     ]);
 
     return response()->json([
-        'status' => "true",
+        'status'  => true,
         'message' => 'Punched out successfully',
-        'data' => $attendance
+        'data'    => $attendance
     ], 200);
 }
 }

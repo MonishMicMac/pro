@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+{{-- Libraries --}}
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -8,53 +9,63 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700" rel="stylesheet"/>
 
 <style>
-    /* Styles kept same as previous ... */
+    /* Glassmorphism Styles */
     .glass-panel { background: rgba(255, 255, 255, 0.70); backdrop-filter: blur(12px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07); }
     .glass-card { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.2s ease; }
     .glass-card:hover { background: rgba(255, 255, 255, 0.9); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     
+    /* Pagination Styles */
     #table-pagination .paginate_button { padding: 4px 10px; margin: 0 2px; border-radius: 8px; background: white; color: #64748b; font-weight: 700; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 28px; transition: all 0.2s; }
     #table-pagination .paginate_button:hover:not(.current) { color: #2563eb; background: #eff6ff; }
     #table-pagination .paginate_button.current { background: #2563eb; color: white; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }
     
+    /* Table Spacing */
     table.dataTable { border-collapse: separate !important; border-spacing: 0 0.65rem !important; }
-    table.dataTable tbody tr td { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.5); vertical-align: middle; }
+    
+    /* Vertical Align Top for Long Remarks */
+    table.dataTable tbody tr td { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.5); vertical-align: top; }
+    
     table.dataTable tbody tr td:first-child { border-left: 1px solid rgba(255,255,255,0.5); border-radius: 12px 0 0 12px; }
     table.dataTable tbody tr td:last-child { border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 12px 12px 0; }
 </style>
 
 <div class="relative flex-1 p-6 space-y-4 pb-24 bg-[#f8fafc] min-h-screen">
     
+    {{-- Header --}}
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
         <div>
             <nav class="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                <span>Reports</span> <span class="material-symbols-outlined text-[12px]">chevron_right</span> <span class="text-blue-600">BDO Joint Visit</span>
+                <span>Reports</span> <span class="material-symbols-outlined text-[12px]">chevron_right</span> <span class="text-blue-600">Calls</span>
             </nav>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Joint Work & Visit</h1>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">BDM Call Report</h1>
         </div>
     </div>
 
-    {{-- FILTERS --}}
+    {{-- CARD 1: FILTERS --}}
     <div class="glass-panel rounded-[1.5rem] p-6 mb-6">
         <div class="flex flex-wrap gap-4 items-end">
             
+            {{-- BDM Filter --}}
             <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">BDO Name</label>
-                <select id="filterBdo" class="w-48 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
-                    <option value="">All BDOs</option>
-                    @foreach($bdos as $bdo) <option value="{{ $bdo->id }}">{{ $bdo->name }}</option> @endforeach
-                </select>
-            </div>
-
-            {{-- UPDATED LABEL: Manager (BDM) --}}
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Manager (BDM)</label>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">BDM Name</label>
                 <select id="filterBdm" class="w-48 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
-                    <option value="">All Managers</option>
+                    <option value="">All BDMs</option>
                     @foreach($bdms as $bdm) <option value="{{ $bdm->id }}">{{ $bdm->name }}</option> @endforeach
                 </select>
             </div>
+
+            {{-- Call Status Filter --}}
+            <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
+                <select id="filterStatus" class="w-40 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    <option value="">All Statuses</option>
+                    <option value="Connected">Connected</option>
+                    <option value="Busy">Busy</option>
+                    <option value="No Answer">No Answer</option>
+                </select>
+            </div>
             
+            {{-- Date Range --}}
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date Range</label>
                 <div class="flex items-center gap-2">
@@ -75,8 +86,10 @@
         </div>
     </div>
 
-    {{-- DATA TABLE --}}
+    {{-- CARD 2: DATA TABLE --}}
     <div class="glass-panel rounded-[1.5rem] overflow-hidden">
+        
+        {{-- Search Header --}}
         <div class="p-4 bg-white/30 border-b border-white/50 flex justify-between items-center">
             <div class="relative w-full max-w-xs">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
@@ -87,26 +100,27 @@
             </button>
         </div>
 
+        {{-- Table --}}
         <div class="px-4 overflow-x-auto">
-            <table class="w-full" id="joint-table">
+            <table class="w-full" id="call-table">
                 <thead>
                     <tr class="text-left text-[10px] font-black text-slate-400 uppercase tracking-wider">
                         <th class="px-4 pb-2">#</th>
-                        <th class="px-4 pb-2">Date</th>
-                        <th class="px-4 pb-2">BDO Name</th>
-                        {{-- UPDATED HEADER --}}
-                        <th class="px-4 pb-2 text-indigo-600">Manager (BDM)</th>
-                        <th class="px-4 pb-2">Client</th>
-                        <th class="px-4 pb-2">Name</th>
-                        <th class="px-4 pb-2">Request Status</th>
-                        <th class="px-4 pb-2">Location</th>
-                        <th class="px-4 pb-2 text-right">Visit Status</th>
+                        <th class="px-4 pb-2">Date & Time</th>
+                        <th class="px-4 pb-2 text-indigo-600">BDM Name</th>
+                        <th class="px-4 pb-2">Client Type</th>
+                        <th class="px-4 pb-2">Client Name</th>
+                        <th class="px-4 pb-2">Status</th>
+                        <th class="px-4 pb-2">Duration</th>
+                        {{-- Added min-width for Remarks --}}
+                        <th class="px-4 pb-2 min-w-[250px]">Remarks</th>
                     </tr>
                 </thead>
                 <tbody class="text-xs font-bold text-slate-700"></tbody>
             </table>
         </div>
         
+        {{-- Footer --}}
         <div class="p-4 bg-white/40 border-t border-white/60 flex items-center justify-between">
             <p id="table-info" class="text-[10px] font-black text-slate-400 uppercase tracking-widest"></p>
             <div id="table-pagination" class="flex items-center gap-2"></div>
@@ -120,14 +134,14 @@ let table;
 
 $(document).ready(function() {
     
-    table = $('#joint-table').DataTable({
+    table = $('#call-table').DataTable({
         processing: true, 
         serverSide: true,
         ajax: {
-            url: "{{ route('bdo-joint-visits.data') }}",
+            url: "{{ route('bdm-call-reports.data') }}",
             data: function (d) { 
-                d.bdo_id = $('#filterBdo').val(); 
                 d.bdm_id = $('#filterBdm').val(); 
+                d.call_status = $('#filterStatus').val(); 
                 d.start_date = $('#startDate').val(); 
                 d.end_date = $('#endDate').val();     
             }
@@ -135,15 +149,14 @@ $(document).ready(function() {
         createdRow: (row) => $(row).addClass('glass-card group hover:bg-white/60 transition-all'),
         columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false },
-            { data: 'schedule_date', name: 'schedule_date' },
-            { data: 'bdo_name', name: 'user.name' },
-            // UPDATED JS MAPPING: manager_name
-            { data: 'manager_name', name: 'bdm.name', className: 'text-indigo-600 font-bold' },
-            { data: 'client_type', name: 'visit_type' },
+            { data: 'called_at', name: 'called_at', className: 'whitespace-nowrap' }, // Keep Date on one line
+            { data: 'bdm_name', name: 'bdm.name', className: 'text-indigo-600 font-bold whitespace-nowrap' },
+            { data: 'client_type', name: 'callable_type' },
             { data: 'client_name', name: 'client_name', orderable: false },
-            { data: 'request_status', name: 'request_status', orderable: false, searchable: false },
-            { data: 'location', name: 'location', orderable: false },
-            { data: 'visit_status', name: 'action', className: 'text-right' }
+            { data: 'call_status', name: 'call_status' },
+            { data: 'duration', name: 'duration' },
+            // Added 'whitespace-normal' to allow text wrapping for long remarks
+            { data: 'remarks', name: 'remarks', orderable: false, className: 'whitespace-normal text-slate-600 leading-relaxed' }
         ],
         dom: 'rtp', 
         language: {
@@ -168,7 +181,7 @@ $(document).ready(function() {
     });
 
     $('#customSearch').on('keyup', function() { table.search(this.value).draw(); });
-    $('#filterBdo, #filterBdm, #startDate, #endDate').on('change', function() { table.draw(); });
+    $('#filterBdm, #filterStatus, #startDate, #endDate').on('change', function() { table.draw(); });
 });
 </script>
 @endsection

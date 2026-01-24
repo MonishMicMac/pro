@@ -24,6 +24,9 @@ class DigitalMarketingLeadController extends Controller
 
     $buildingTypes = \App\Helpers\LeadHelper::getBuildingTypes();
     $leadStages    = \App\Helpers\LeadHelper::getLeadStages();
+    // FIX: Force update stages to handle potential caching issues where 0 was RNR
+    $leadStages[0] = 'New Lead';
+    $leadStages[7] = 'RNR';
 
     if ($request->ajax()) {
         // UPDATED: Added 'transferer' to the with() array

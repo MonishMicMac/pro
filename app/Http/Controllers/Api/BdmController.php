@@ -34,122 +34,119 @@ class BdmController extends Controller
      * Get BDM Dashboard Data
      */
     public function getBdmDashboard(Request $request)
-    {
-        // 1. Validate Inputs
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
-            'date'    => 'required|date_format:Y-m-d',
-        ]);
+    {   
+    // 1. Validate Inputs
+    $validator = Validator::make($request->all(), [
+        'user_id' => 'required|exists:users,id',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 200);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => false,
+            'message' => $validator->errors()->first()
+        ], 200);
+    }
 
-        try {
-            $userId = $request->user_id;
-            $date   = $request->date;
+    try {
+        $userId = $request->user_id;
+        $date   = Carbon::now('Asia/Kolkata')->toDateString(); // TODAY DATE
 
-            // ====================================================
-            // 1. ATTENDANCE (For the BDM themselves)
-            // ====================================================
-            $attendance = UserAttendance::where('user_id', $userId)
-                ->where('date', $date)
-                ->first();
+        // ====================================================
+        // 1. ATTENDANCE
+        // ====================================================
+        $attendance = UserAttendance::where('user_id', $userId)
+            ->where('date', $date)
+            ->first();
 
-            $attendanceData = [
-                'punch_in'  => $attendance && $attendance->punch_in_time ? true : false,
-                'punch_out' => $attendance && $attendance->punch_out_time ? true : false,
-                'intime'    => $attendance ? $attendance->punch_in_time : null,
-                'outtime'   => $attendance ? $attendance->punch_out_time : null,
-            ];
+        $attendanceData = [
+            'punch_in'  => $attendance && $attendance->punch_in_time ? true : false,
+            'punch_out' => $attendance && $attendance->punch_out_time ? true : false,
+            'intime'    => $attendance->punch_in_time ?? null,
+            'outtime'   => $attendance->punch_out_time ?? null,
+        ];
 
-            // ====================================================
-            // 2. SCHEDULE & COVERAGE (For the BDM's own visits)
-            // ====================================================
-            $visits = LeadVisitBdm::where('user_id', $userId)
-                ->whereDate('schedule_date', $date)
-                ->get();
+        // ====================================================
+        // 2. SCHEDULE & COVERAGE
+        // ====================================================
+        $visits = LeadVisitBdm::where('user_id', $userId)
+            ->whereDate('schedule_date', $date)
+            ->get();
 
-            $plannedTotal    = $visits->where('type', 'planned')->count();
-            $plannedVisited  = $visits->where('type', 'planned')->where('action', '1')->count();
-            $plannedMissed   = $visits->where('type', 'planned')->where('action', '0')->count();
-            $unplannedTotal  = $visits->where('type', 'unplanned')->count();
+        $plannedTotal   = $visits->where('type', 'planned')->count();
+        $plannedVisited = $visits->where('type', 'planned')->where('action', '1')->count();
+        $plannedMissed  = $visits->where('type', 'planned')->where('action', '0')->count();
+        $unplannedTotal = $visits->where('type', 'unplanned')->count();
 
-            // Distance Calculation
-            $startKm = $attendance ? (float)$attendance->start_km : 0;
-            $endKm   = $attendance ? (float)$attendance->end_km : 0;
-            $distanceCovered = ($endKm > $startKm) ? ($endKm - $startKm) : 0;
+        $startKm = (float)($attendance->start_km ?? 0);
+        $endKm   = (float)($attendance->end_km ?? 0);
+        $distanceCovered = ($endKm > $startKm) ? ($endKm - $startKm) : 0;
 
-            // ====================================================
-            // 3. ACTIVITY SECTION
-            // ====================================================
-            
-            // A. LEADS: Fetch based on ASSIGNED BDOs (Team)
-            $bdoIds = UserMapping::where('bdm_id', $userId)
-                ->where('action', '0') // Active mappings only
-                ->pluck('bdo_id')
-                ->toArray();
-            
-            $leadCount = Lead::whereIn('user_id', $bdoIds)->count();
+        // ====================================================
+        // 3. ACTIVITY
+        // ====================================================
+        $bdoIds = UserMapping::where('bdm_id', $userId)
+            ->where('action', '0')
+            ->pluck('bdo_id')
+            ->toArray();
 
-            // B. ACCOUNTS: Fetch based on BDM ID (Self)
-            $accountCount = Account::where('user_id', $userId)->count();
+        $leadCount       = Lead::whereIn('user_id', $bdoIds)->count();
+        $accountCount    = Account::where('user_id', $userId)->count();
+        $fabricatorCount = Fabricator::where('created_by', $userId)->count();
 
-            // C. FABRICATORS: Fetch based on BDM ID (Self)
-            $fabricatorCount = Fabricator::where('created_by', $userId)->count();
+        // ====================================================
+        // 4. RESPONSE
+        // ====================================================
+        $data = [
+            'attendance' => $attendanceData,
 
+            'schedule' => [
+                'planned'   => $plannedTotal,
+                'visited'   => $plannedVisited,
+                'missed'    => $plannedMissed,
+                'unplanned' => $unplannedTotal,
+            ],
 
-            // ====================================================
-            // 4. CONSTRUCT RESPONSE
-            // ====================================================
-            $data = [
-                'attendance' => $attendanceData,
-                
-                'schedule' => [
-                    'planned'   => $plannedTotal,
-                    'visited'   => $plannedVisited,
-                    'missed'    => $plannedMissed,
-                    'unplanned' => $unplannedTotal,
-                ],
+            'activity' => [
+                'lead'       => $leadCount,
+                'account'    => $accountCount,
+                'fabricator' => $fabricatorCount,
+                'calls'      => 0,
+            ],
 
-                'activity' => [
-                    'lead'       => $leadCount,       // Team Leads
-                    'account'    => $accountCount,    // Own Accounts
-                    'fabricator' => $fabricatorCount, // Own Fabricators
-                    'reports'    => 0, 
-                ],
+            'overall_monthly_target' => [
+                'amount' => 200000,
+                'month'  => Carbon::now('Asia/Kolkata')->format('F Y'),
+            ],
 
-                'overall_monthly_target' => [
-                    'amount' => 500000, 
-                    'month'  => Carbon::parse($date)->format('F Y'),
-                ],
+            'achievement' => [
+                'amount'     => 320000,
+                'percentage' => 70,
+            ],
 
-                'achievement' => [
-                    'amount'     => 350000, 
-                    'percentage' => 70,    
-                ],
+            'target_progress' => [
+                'total_outstanding' => 120000,
+                'conversion_rate'   => 12.5,
+            ],
 
-                'target_progress' => [
-                    'total_outstanding' => 150000, 
-                    'conversion_rate'   => 12.5,  
-                ],
+            'coverage' => [
+                'distance'      => $distanceCovered . ' km',
+                'km'            => $distanceCovered,
+                'schedule_beat' => $plannedVisited . '/' . $plannedTotal,
+            ]
+        ];
 
-                'coverage' => [
-                    'distance'      => $distanceCovered . ' km',
-                    'km'            => $distanceCovered,
-                    'schedule_beat' => $plannedVisited . '/' . $plannedTotal, 
-                ]
-            ];
+        return response()->json([
+            'status'  => true,
+            'message' => 'Dashboard data retrieved successfully',
+            'data'    => $data
+        ], 200);
 
-            return response()->json([
-                'status'  => true,
-                'message' => 'Dashboard data retrieved successfully',
-                'data'    => $data
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
-        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 200);
+    }
     }
 
     /**
@@ -595,14 +592,59 @@ public function storeBdmSchedule(Request $request)
     }
 
 
+    // /**
+    //  * Check-in to an existing schedule
+    //  * Updates intime, visit_date, inlat, inlong, and image for bdm
+    //  */
+    // public function leadBdmCheckIn(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'visit_id' => 'required|exists:lead_visits_bdm,id', // Changed table name in validation to be safe
+    //         'inlat'    => 'required',
+    //         'inlong'   => 'required',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => $validator->errors()->first()
+    //         ], 200);
+    //     }
+
+    //     try {
+    //         // 1. Find the existing schedule record
+    //         $visit = LeadVisitBdm::find($request->visit_id);
+
+    //         // 3. Update the existing record
+    //         $visit->update([
+    //             'visit_date' => Carbon::now()->format('Y-m-d'), // Stores only date
+    //             'intime'     => Carbon::now()->format('H:i:s'), // CHANGED: intime_time -> intime
+    //             'inlat'      => $request->inlat,
+    //             'inlong'     => $request->inlong,
+    //             'action'     => '0', // As per your requirement to keep/update action to '0'
+    //         ]);
+
+    //         return response()->json([
+    //             'status'  => true,
+    //             'message' => 'Check-in successful',
+    //             'data'    => $visit
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Error: ' . $e->getMessage()
+    //         ], 200);
+    //     }
+    // }
+
     /**
      * Check-in to an existing schedule
      * Updates intime, visit_date, inlat, inlong, and image for bdm
      */
-    public function leadBdmCheckIn(Request $request)
+public function leadBdmCheckIn(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'visit_id' => 'required|exists:lead_visits_bdm,id', // Changed table name in validation to be safe
+            'visit_id' => 'required|exists:lead_visits_bdm,id',
             'inlat'    => 'required',
             'inlong'   => 'required',
         ]);
@@ -615,16 +657,50 @@ public function storeBdmSchedule(Request $request)
         }
 
         try {
-            // 1. Find the existing schedule record
             $visit = LeadVisitBdm::find($request->visit_id);
 
-            // 3. Update the existing record
+            // ============================================================
+            // 1. Check if ALREADY checked in for THIS specific visit
+            // ============================================================
+            if (!empty($visit->intime)) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'You have already checked in for this visit.'
+                ], 200);
+            }
+
+            // ============================================================
+            // 2. GLOBAL CHECK: Is there ANY other active visit?
+            // (intime is present, but outtime is NULL)
+            // ============================================================
+            $activeVisit = LeadVisitBdm::where('user_id', $visit->user_id)
+                ->whereNotNull('intime') // Has punched in
+                ->whereNull('outtime')   // Has NOT punched out
+                ->where('id', '!=', $visit->id) // Not the current row
+                ->first();
+
+            if ($activeVisit) {
+                // Helper to get the name of the active site for the error message
+                $siteName = 'another site';
+                if ($activeVisit->visit_type == '1') $siteName = $activeVisit->account->name ?? 'Account';
+                elseif ($activeVisit->visit_type == '2') $siteName = $activeVisit->lead->name ?? 'Lead';
+                elseif ($activeVisit->visit_type == '3') $siteName = $activeVisit->fabricator->shop_name ?? 'Fabricator';
+
+                return response()->json([
+                    'status'  => false,
+                    'message' => "You are currently checked in at '$siteName'. Please Check-Out from there before starting a new visit."
+                ], 200);
+            }
+
+            // ============================================================
+            // 3. Proceed with Check-In
+            // ============================================================
             $visit->update([
-                'visit_date' => Carbon::now()->format('Y-m-d'), // Stores only date
-                'intime'     => Carbon::now()->format('H:i:s'), // CHANGED: intime_time -> intime
+                'visit_date' => Carbon::now()->format('Y-m-d'),
+                'intime'     => Carbon::now()->format('H:i:s'),
                 'inlat'      => $request->inlat,
                 'inlong'     => $request->inlong,
-                'action'     => '0', // As per your requirement to keep/update action to '0'
+                'action'     => '0', // In Progress
             ]);
 
             return response()->json([
@@ -632,6 +708,7 @@ public function storeBdmSchedule(Request $request)
                 'message' => 'Check-in successful',
                 'data'    => $visit
             ], 200);
+
         } catch (\Exception $e) {
             return response()->json([
                 'status'  => false,
@@ -645,16 +722,73 @@ public function storeBdmSchedule(Request $request)
      * Check-out to an existing schedule
      * Updates outtime, outlat, outlong, vehicle_type, remarks and image for bdm
      */
+    // public function leadBdmCheckOut(Request $request)
+    // {
+    //     // 1. Validate the request (including the image file)
+    //     $validator = Validator::make($request->all(), [
+    //         'visit_id'     => 'required|exists:lead_visits_bdm,id',
+    //         'outlat'       => 'required',
+    //         'outlong'      => 'required',
+    //         'vehicle_type' => 'required|in:1,2,3', // Ensure your DB has this column
+    //         'remarks'      => 'nullable|string',
+    //         'image'        => 'required|file|image|mimes:jpeg,png,jpg|max:5120', // Max 5MB
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => $validator->errors()->first()
+    //         ], 200);
+    //     }
+
+    //     try {
+    //         // 2. Find the existing schedule record
+    //         $visit = LeadVisitBdm::find($request->visit_id);
+
+    //         // 3. Handle Image Upload
+    //         $imageName = null;
+    //         if ($request->hasFile('image')) {
+    //             // Stores in storage/app/public/visits
+    //             // Ensure you have run: php artisan storage:link
+    //             $path = $request->file('image')->store('visits', 'public');
+
+    //             // Get just the filename (e.g., "hash.jpg") to store in DB
+    //             $imageName = basename($path);
+    //         }
+
+    //         // 4. Update the existing record
+    //         $visit->update([
+    //             'outtime'      => Carbon::now()->format('H:i:s'), // Update Out Time
+    //             'outlat'       => $request->outlat,
+    //             'outlong'      => $request->outlong,
+    //             'vehicle_type' => $request->vehicle_type,
+    //             'remarks'      => $request->remarks ?? null,
+    //             'image'        => $imageName, // Store only the filename
+    //             'action'       => '1', // Mark as '1' (Visited/Completed)
+    //         ]);
+
+    //         return response()->json([
+    //             'status'  => true,
+    //             'message' => 'Check-out successful',
+    //             'data'    => $visit
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Error: ' . $e->getMessage()
+    //         ], 200);
+    //     }
+    // }
+
     public function leadBdmCheckOut(Request $request)
     {
-        // 1. Validate the request (including the image file)
         $validator = Validator::make($request->all(), [
             'visit_id'     => 'required|exists:lead_visits_bdm,id',
             'outlat'       => 'required',
             'outlong'      => 'required',
-            'vehicle_type' => 'required|in:1,2,3', // Ensure your DB has this column
+            'vehicle_type' => 'required|in:1,2,3',
             'remarks'      => 'nullable|string',
-            'image'        => 'required|file|image|mimes:jpeg,png,jpg|max:5120', // Max 5MB
+            'image'        => 'required|file|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -665,29 +799,44 @@ public function storeBdmSchedule(Request $request)
         }
 
         try {
-            // 2. Find the existing schedule record
             $visit = LeadVisitBdm::find($request->visit_id);
+
+            // ============================================================
+            // 1. VALIDATION: Must have Checked-In first
+            // ============================================================
+            if (empty($visit->intime)) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'You must Check-In before you can Check-Out.'
+                ], 200);
+            }
+
+            // ============================================================
+            // 2. VALIDATION: Prevent Double Check-Out
+            // ============================================================
+            if (!empty($visit->outtime)) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Check-Out has already been completed for this visit.'
+                ], 200);
+            }
 
             // 3. Handle Image Upload
             $imageName = null;
             if ($request->hasFile('image')) {
-                // Stores in storage/app/public/visits
-                // Ensure you have run: php artisan storage:link
                 $path = $request->file('image')->store('visits', 'public');
-
-                // Get just the filename (e.g., "hash.jpg") to store in DB
                 $imageName = basename($path);
             }
 
-            // 4. Update the existing record
+            // 4. Update Record
             $visit->update([
-                'outtime'      => Carbon::now()->format('H:i:s'), // Update Out Time
+                'outtime'      => Carbon::now()->format('H:i:s'),
                 'outlat'       => $request->outlat,
                 'outlong'      => $request->outlong,
                 'vehicle_type' => $request->vehicle_type,
                 'remarks'      => $request->remarks ?? null,
-                'image'        => $imageName, // Store only the filename
-                'action'       => '1', // Mark as '1' (Visited/Completed)
+                'image'        => $imageName,
+                'action'       => '1', // Mark as Completed/Visited
             ]);
 
             return response()->json([
@@ -695,6 +844,7 @@ public function storeBdmSchedule(Request $request)
                 'message' => 'Check-out successful',
                 'data'    => $visit
             ], 200);
+
         } catch (\Exception $e) {
             return response()->json([
                 'status'  => false,
@@ -789,7 +939,7 @@ public function storeBdmSchedule(Request $request)
                 'status'  => true,
                 'message' => count($createdVisits) . ' unplanned visit(s) created successfully.',
                 'data'    => $createdVisits
-            ], 201);
+            ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'status'  => false,
@@ -885,14 +1035,75 @@ public function storeBdmSchedule(Request $request)
         ], 200);
     }
 
+    // /**
+    //  * Unplanned Check-in
+    //  * Updates intime, visit_date, inlat, inlong, and image for an unplanned visit bdm
+    //  */
+    // public function unplannedBdmCheckIn(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'visit_id' => 'required|exists:lead_visits_bdm,id', // Changed table name in validation
+    //         'inlat'    => 'required',
+    //         'inlong'   => 'required',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => $validator->errors()->first()
+    //         ], 200);
+    //     }
+
+    //     try {
+    //         // 1. Find the existing unplanned record
+    //         $visit = LeadVisitBdm::find($request->visit_id);
+
+    //         // 2. Security Check
+    //         if ($visit->type !== 'unplanned') {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'This record is not an unplanned visit.'
+    //             ], 200);
+    //         }
+
+    //         // --- NEW CHECK: Prevent duplicate In-Time ---
+    //         // CHANGED: intime_time -> intime
+    //         if (!empty($visit->intime)) {
+    //             return response()->json([
+    //                 'status'  => false,
+    //                 'message' => 'Check-in already done for this visit.'
+    //             ], 200);
+    //         }
+
+    //         // 4. Update the record
+    //         $visit->update([
+    //             'visit_date' => Carbon::now()->format('Y-m-d'),
+    //             'intime'     => Carbon::now()->format('H:i:s'), // CHANGED: intime_time -> intime
+    //             'inlat'      => $request->inlat,
+    //             'inlong'     => $request->inlong,
+    //             'action'     => '1', // Setting to '1' (In-Progress)
+    //         ]);
+
+    //         return response()->json([
+    //             'status'  => true,
+    //             'message' => 'Unplanned Check-in successful',
+    //             'data'    => $visit
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Error: ' . $e->getMessage()
+    //         ], 200);
+    //     }
+    // }
+
     /**
      * Unplanned Check-in
-     * Updates intime, visit_date, inlat, inlong, and image for an unplanned visit bdm
      */
     public function unplannedBdmCheckIn(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'visit_id' => 'required|exists:lead_visits_bdm,id', // Changed table name in validation
+            'visit_id' => 'required|exists:lead_visits_bdm,id',
             'inlat'    => 'required',
             'inlong'   => 'required',
         ]);
@@ -905,33 +1116,45 @@ public function storeBdmSchedule(Request $request)
         }
 
         try {
-            // 1. Find the existing unplanned record
             $visit = LeadVisitBdm::find($request->visit_id);
 
-            // 2. Security Check
             if ($visit->type !== 'unplanned') {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'This record is not an unplanned visit.'
-                ], 200);
+                return response()->json(['status' => false, 'message' => 'This record is not an unplanned visit.'], 200);
             }
 
-            // --- NEW CHECK: Prevent duplicate In-Time ---
-            // CHANGED: intime_time -> intime
+            // ============================================================
+            // 1. GLOBAL CHECK: Is there ANY other active visit?
+            // ============================================================
             if (!empty($visit->intime)) {
+                return response()->json(['status' => false, 'message' => 'Check-in already done for this visit.'], 200);
+            }
+
+            $activeVisit = LeadVisitBdm::where('user_id', $visit->user_id)
+                ->whereNotNull('intime')
+                ->whereNull('outtime')
+                ->where('id', '!=', $visit->id)
+                ->first();
+
+            if ($activeVisit) {
+                 $siteName = 'another site';
+                // Simple logic to get name for error message
+                if($activeVisit->visit_type == '1') $siteName = $activeVisit->account->name ?? 'Account';
+                elseif($activeVisit->visit_type == '2') $siteName = $activeVisit->lead->name ?? 'Lead';
+                elseif($activeVisit->visit_type == '3') $siteName = $activeVisit->fabricator->shop_name ?? 'Fabricator';
+
                 return response()->json([
                     'status'  => false,
-                    'message' => 'Check-in already done for this visit.'
+                    'message' => "You are currently checked in at ($siteName). Please complete that visit first."
                 ], 200);
             }
+            // ============================================================
 
-            // 4. Update the record
             $visit->update([
                 'visit_date' => Carbon::now()->format('Y-m-d'),
-                'intime'     => Carbon::now()->format('H:i:s'), // CHANGED: intime_time -> intime
+                'intime'     => Carbon::now()->format('H:i:s'),
                 'inlat'      => $request->inlat,
                 'inlong'     => $request->inlong,
-                'action'     => '1', // Setting to '1' (In-Progress)
+                'action'     => '1', // In Progress
             ]);
 
             return response()->json([
@@ -939,28 +1162,107 @@ public function storeBdmSchedule(Request $request)
                 'message' => 'Unplanned Check-in successful',
                 'data'    => $visit
             ], 200);
+
         } catch (\Exception $e) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Error: ' . $e->getMessage()
-            ], 200);
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 200);
         }
     }
 
+    // /**
+    //  * Unplanned Check-out
+    //  * Updates outtime, outlat, outlong, vehicle_type, remarks and image for an unplanned visit bdm
+    //  */
+    // public function unplannedBdmCheckOut(Request $request)
+    // {
+    //     // 1. Validate inputs (including image and vehicle type)
+    //     $validator = Validator::make($request->all(), [
+    //         'visit_id'     => 'required|exists:lead_visits_bdm,id',
+    //         'outlat'       => 'required',
+    //         'outlong'      => 'required',
+    //         'vehicle_type' => 'required|in:1,2,3',
+    //         'remarks'      => 'nullable|string',
+    //         'image'        => 'required|file|image|mimes:jpeg,png,jpg|max:5120', // Max 5MB
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => $validator->errors()->first()
+    //         ], 200);
+    //     }
+
+    //     try {
+    //         // 2. Find the existing record
+    //         $visit = LeadVisitBdm::find($request->visit_id);
+
+    //         // 3. Security Check: Is this actually an Unplanned visit?
+    //         if ($visit->type !== 'unplanned') {
+    //             return response()->json([
+    //                 'status'  => false,
+    //                 'message' => 'This record is not an unplanned visit.'
+    //             ], 200);
+    //         }
+
+    //         // 4. Logic Check: Ensure they have Checked-In first
+    //         if (empty($visit->intime)) {
+    //             return response()->json([
+    //                 'status'  => false,
+    //                 'message' => 'You must check-in before checking out.'
+    //             ], 200);
+    //         }
+
+    //         // 5. Logic Check: Prevent duplicate Check-Out
+    //         if (!empty($visit->outtime)) {
+    //             return response()->json([
+    //                 'status'  => false,
+    //                 'message' => 'Check-out already completed for this visit.'
+    //             ], 200);
+    //         }
+
+    //         // 6. Handle Image Upload
+    //         $imageName = null;
+    //         if ($request->hasFile('image')) {
+    //             // Stores in storage/app/public/visits
+    //             $path = $request->file('image')->store('visits', 'public');
+    //             $imageName = basename($path);
+    //         }
+
+    //         // 7. Update the record
+    //         $visit->update([
+    //             'outtime'      => Carbon::now()->format('H:i:s'),
+    //             'outlat'       => $request->outlat,
+    //             'outlong'      => $request->outlong,
+    //             'vehicle_type' => $request->vehicle_type,
+    //             'remarks'      => $request->remarks ?? null,
+    //             'image'        => $imageName,
+    //             'action'       => '1', // Mark as Completed/Visited
+    //         ]);
+
+    //         return response()->json([
+    //             'status'  => true,
+    //             'message' => 'Unplanned Check-out successful',
+    //             'data'    => $visit
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Error: ' . $e->getMessage()
+    //         ], 200);
+    //     }
+    // }
+
     /**
      * Unplanned Check-out
-     * Updates outtime, outlat, outlong, vehicle_type, remarks and image for an unplanned visit bdm
      */
     public function unplannedBdmCheckOut(Request $request)
     {
-        // 1. Validate inputs (including image and vehicle type)
         $validator = Validator::make($request->all(), [
             'visit_id'     => 'required|exists:lead_visits_bdm,id',
             'outlat'       => 'required',
             'outlong'      => 'required',
             'vehicle_type' => 'required|in:1,2,3',
             'remarks'      => 'nullable|string',
-            'image'        => 'required|file|image|mimes:jpeg,png,jpg|max:5120', // Max 5MB
+            'image'        => 'required|file|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -971,26 +1273,21 @@ public function storeBdmSchedule(Request $request)
         }
 
         try {
-            // 2. Find the existing record
             $visit = LeadVisitBdm::find($request->visit_id);
 
-            // 3. Security Check: Is this actually an Unplanned visit?
             if ($visit->type !== 'unplanned') {
-                return response()->json([
-                    'status'  => false,
-                    'message' => 'This record is not an unplanned visit.'
-                ], 200);
+                return response()->json(['status' => false, 'message' => 'This record is not an unplanned visit.'], 200);
             }
 
-            // 4. Logic Check: Ensure they have Checked-In first
+            // 1. Validation: Must have Checked-In first
             if (empty($visit->intime)) {
                 return response()->json([
                     'status'  => false,
-                    'message' => 'You must check-in before checking out.'
+                    'message' => 'You must Check-In before you can Check-Out.'
                 ], 200);
             }
 
-            // 5. Logic Check: Prevent duplicate Check-Out
+            // 2. Validation: Prevent Double Check-Out
             if (!empty($visit->outtime)) {
                 return response()->json([
                     'status'  => false,
@@ -998,15 +1295,14 @@ public function storeBdmSchedule(Request $request)
                 ], 200);
             }
 
-            // 6. Handle Image Upload
+            // 3. Handle Image
             $imageName = null;
             if ($request->hasFile('image')) {
-                // Stores in storage/app/public/visits
                 $path = $request->file('image')->store('visits', 'public');
                 $imageName = basename($path);
             }
 
-            // 7. Update the record
+            // 4. Update
             $visit->update([
                 'outtime'      => Carbon::now()->format('H:i:s'),
                 'outlat'       => $request->outlat,
@@ -1014,7 +1310,7 @@ public function storeBdmSchedule(Request $request)
                 'vehicle_type' => $request->vehicle_type,
                 'remarks'      => $request->remarks ?? null,
                 'image'        => $imageName,
-                'action'       => '1', // Mark as Completed/Visited
+                'action'       => '1', // Completed
             ]);
 
             return response()->json([
@@ -1022,11 +1318,9 @@ public function storeBdmSchedule(Request $request)
                 'message' => 'Unplanned Check-out successful',
                 'data'    => $visit
             ], 200);
+
         } catch (\Exception $e) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Error: ' . $e->getMessage()
-            ], 200);
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 200);
         }
     }
 
@@ -1788,7 +2082,7 @@ public function getJointWorkRequests(Request $request)
             ], 200);
 
         } catch (\Exception $e) {
-            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 200);
         }
     }
 
@@ -1910,6 +2204,136 @@ public function getJointWorkRequests(Request $request)
                     'total_visited' => $totalVisits,
                     'individual'    => count($individualWork),
                     'joint'         => count($jointWork)
+                ],
+                'data'    => [
+                    'individual_work' => $individualWork,
+                    'joint_work'      => $jointWork,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 200);
+        }
+    }
+
+/**
+     * Get BDM Daily Activity Report
+     * FIXED: Correct spend_time calculation
+     */
+    public function getBdmDailyReport(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'date'    => 'required|date_format:Y-m-d',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 200);
+        }
+
+        try {
+            $visits = LeadVisitBdm::with(['lead', 'account', 'fabricator', 'bdo'])
+                ->where('user_id', $request->user_id)
+                ->whereDate('schedule_date', $request->date)
+                ->orderBy('intime', 'asc') 
+                ->get();
+
+            $individualWork = [];
+            $jointWork      = [];
+            $totalMinutesSpent = 0; // Accumulator for total duration
+
+            foreach ($visits as $row) {
+                
+                // A. Client Resolution
+                $clientName = 'Unknown';
+                $clientType = 'Unknown';
+                $location   = null;
+
+                if ($row->visit_type == '1') {
+                    $clientType = 'Account';
+                    $clientName = $row->account ? $row->account->name : 'Unknown Account';
+                    $location   = $row->account ? $row->account->address : null;
+                } elseif ($row->visit_type == '2') {
+                    $clientType = 'Lead';
+                    $clientName = $row->lead ? $row->lead->name : 'Unknown Lead';
+                    $location   = $row->lead ? $row->lead->site_address : null;
+                } elseif ($row->visit_type == '3') {
+                    $clientType = 'Fabricator';
+                    $clientName = $row->fabricator ? $row->fabricator->shop_name : 'Unknown Fabricator';
+                    $location   = $row->fabricator ? $row->fabricator->address : null;
+                }
+
+                // B. Spend Time Calculation (FIXED)
+                $spendTime = '-';
+                if ($row->intime && $row->outtime) {
+                    try {
+                        // Parse times using the request date to ensure consistency
+                        $start = Carbon::parse($request->date . ' ' . $row->intime);
+                        $end   = Carbon::parse($request->date . ' ' . $row->outtime);
+
+                        // If end time is technically 'before' start time (e.g. crossed midnight), add a day to end
+                        if ($end->lt($start)) {
+                            $end->addDay();
+                        }
+
+                        // Calculate difference in minutes (absolute)
+                        $diffInMinutes = $start->diffInMinutes($end);
+                        $totalMinutesSpent += $diffInMinutes;
+
+                        // Format string (e.g. "1h 30m" or "45m")
+                        $hours = intdiv($diffInMinutes, 60);
+                        $minutes = $diffInMinutes % 60;
+                        
+                        if ($hours > 0) {
+                            $spendTime = "{$hours}h {$minutes}m";
+                        } else {
+                            $spendTime = "{$minutes}m";
+                        }
+                    } catch (\Exception $ex) {
+                        $spendTime = 'Error';
+                    }
+                }
+
+                // C. Status
+                $status = ($row->action == '1') ? 'Completed' : 'Pending/In-Progress';
+
+                $visitData = [
+                    'visit_id'    => $row->id,
+                    'visit_type'  => $clientType,
+                    'client_name' => $clientName,
+                    'location'    => $location,
+                    
+                    // Display friendly time format (10:30 AM)
+                    'intime'      => $row->intime ? Carbon::parse($row->intime)->format('h:i A') : '-',
+                    'outtime'     => $row->outtime ? Carbon::parse($row->outtime)->format('h:i A') : '-',
+                    'spend_time'  => $spendTime,
+                    
+                    'status'      => $status,
+                    'remarks'     => $row->remarks,
+                    'bdo_name'    => ($row->work_type === 'Joint Work' && $row->bdo) ? $row->bdo->name : null,
+                ];
+
+                if ($row->work_type === 'Joint Work') {
+                    $jointWork[] = $visitData;
+                } else {
+                    $individualWork[] = $visitData;
+                }
+            }
+
+            // Calculate Total Summary Duration
+            $summaryHours = intdiv($totalMinutesSpent, 60);
+            $summaryMins  = $totalMinutesSpent % 60;
+            $totalDurationStr = "{$summaryHours}h {$summaryMins}m";
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Daily report retrieved successfully',
+                'date'    => $request->date,
+                'summary' => [
+                    'total_visits'     => count($visits),
+                    'total_duration'   => $totalDurationStr,
+                    'individual_count' => count($individualWork),
+                    'joint_count'      => count($jointWork),
                 ],
                 'data'    => [
                     'individual_work' => $individualWork,

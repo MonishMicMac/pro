@@ -64,4 +64,12 @@ class LeadVisit extends Model
     // Assuming 'bdm_id' is the column in lead_visits table
     return $this->belongsTo(User::class, 'bdm_id'); 
     }
+    /**
+     * Relationship to the Joint Work Request table
+     * Used to check if a Joint Work request is Pending, Approved, or Declined.
+     */
+    public function jointWorkRequest()
+    {
+        return $this->hasOne(JointWorkRequest::class, 'visit_id');
+    }
 }

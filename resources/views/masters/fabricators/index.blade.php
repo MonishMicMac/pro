@@ -4,6 +4,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 
     <style type="text/tailwindcss">
         @layer components {
@@ -24,6 +26,50 @@
             .glass-card:hover {
                 background: rgba(255, 255, 255, 0.9);
                 transform: translateY(-1px);
+            }
+        }
+
+        @layer components {
+
+            /* Main Input Box Container - Forced to Single Line */
+            .select2-container--default .select2-selection--multiple {
+                @apply w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-xl transition-all duration-200 outline-none !important;
+                min-height: 42px;
+                display: flex !important;
+                align-items: center !important;
+            }
+
+            /* Target the list inside Select2 to scroll horizontally instead of wrapping */
+            .select2-selection__rendered {
+                @apply flex flex-nowrap overflow-x-auto gap-1 !important;
+                scrollbar-width: none;
+                /* Hides scrollbar for Firefox */
+            }
+
+            .select2-selection__rendered::-webkit-scrollbar {
+                display: none;
+                /* Hides scrollbar for Chrome/Safari */
+            }
+
+            /* Selected Tags (Pills) - Black & No Wrap */
+            .select2-container--default .select2-selection--multiple .select2-selection__choice {
+                @apply bg-slate-900 border-none text-white rounded-lg px-3 py-1 text-[11px] font-black flex items-center shadow-md !important;
+                margin: 0 !important;
+                white-space: nowrap !important;
+                /* Prevents text inside pill from breaking */
+                flex-shrink: 0 !important;
+                /* Prevents pills from squishing */
+            }
+
+            /* Adjust the search field to stay inline */
+            .select2-search--inline {
+                @apply flex-grow !important;
+            }
+
+            .select2-search--inline .select2-search__field {
+                @apply text-xs font-bold text-slate-700 ml-2 !important;
+                margin-top: 0 !important;
+                width: auto !important;
             }
         }
 
@@ -179,6 +225,8 @@
                             </th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Fabricator
                                 Name</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer
+                                ID</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Contact
                                 Person</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Sales
@@ -190,6 +238,8 @@
                                 Terms</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Credit
                                 Limit</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Credit
+                                Days</th>
 
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Mobile</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Zone</th>
@@ -300,6 +350,13 @@
                         </label>
                         <input type="text" name="shop_name" id="fabricator_name"
                             class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            Customer ID
+                        </label>
+                        <input name="cust_id" id="cust_id"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
                     </div>
 
                     <div>
@@ -502,7 +559,7 @@
                     <div>
                         <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment
                             Credit Terms</label>
-                        <input name="credit_terms"
+                        <input name="payment_credit_terms"
                             class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
                     </div>
 
@@ -510,6 +567,13 @@
                         <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Credit
                             Limit</label>
                         <input name="credit_limit"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            Credit Days
+                        </label>
+                        <input type="number" name="credit_days" id="credit_days"
                             class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
                     </div>
                     <div>
@@ -532,18 +596,33 @@
                     </div>
 
                     <div>
-                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Sales
-                            Person</label>
-                        <input name="sales_person"
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            Sales Person
+                        </label>
+                        <select name="sales_person_id" id="sales_person"
                             class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+                            <option value="">Select Sales Person</option>
+                        </select>
                     </div>
 
+
+
                     <div>
-                        <label
-                            class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Password</label>
-                        <input type="password" name="password"
-                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            Password
+                        </label>
+
+                        <div class="relative">
+                            <input type="password" name="password" id="password"
+                                class="w-full px-3 py-2 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+
+                            <span id="togglePassword"
+                                class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-slate-700 text-[18px]">
+                                visibility
+                            </span>
+                        </div>
                     </div>
+
                     <div>
                         <label
                             class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mobile</label>
@@ -692,6 +771,10 @@ gap-4 text-xs font-bold text-slate-700">
                         data: 'shop_name'
                     },
                     {
+                        data: 'cust_id'
+                    },
+
+                    {
                         data: 'contact_person'
                     },
                     {
@@ -705,6 +788,10 @@ gap-4 text-xs font-bold text-slate-700">
                     },
                     {
                         data: 'credit_limit'
+                    },
+
+                    {
+                        data: 'credit_days'
                     },
                     {
                         data: 'mobile'
@@ -802,7 +889,9 @@ gap-4 text-xs font-bold text-slate-700">
                 placeholder: "Select Brands",
                 allowClear: true,
                 closeOnSelect: false,
-                width: '100%'
+                width: '100%',
+                dropdownParent: $(
+                    '#fabricatorModal') // This ensures the dropdown renders inside the modal layers
             });
 
             // Modal Controls
@@ -813,7 +902,9 @@ gap-4 text-xs font-bold text-slate-700">
                 $('#modalTitle').text('Add New Fabricator');
                 $('#state').val('').trigger('change');
                 $('#brands').val(null).trigger('change');
-
+                $('#password').val('');
+                $('#togglePassword').text('visibility');
+                $('#password').attr('type', 'password');
 
 
                 // 1. Remove hidden first so it exists in the DOM
@@ -825,7 +916,7 @@ gap-4 text-xs font-bold text-slate-700">
                     $('#fabricatorModal')
                         .removeClass('pointer-events-none opacity-0')
                         .addClass('opacity-100 bg-slate-900/30 backdrop-blur-sm');
-
+                    $('#brands').select2('open').select2('close');
                     $('.modal-content')
                         .removeClass('scale-95 opacity-0')
                         .addClass('scale-100 opacity-100');
@@ -961,6 +1052,18 @@ gap-4 text-xs font-bold text-slate-700">
                     modal.addClass('hidden');
                 }, 300);
             };
+            $('#togglePassword').on('click', function() {
+                const input = $('#password');
+                const icon = $(this);
+
+                if (input.attr('type') === 'password') {
+                    input.attr('type', 'text');
+                    icon.text('visibility_off');
+                } else {
+                    input.attr('type', 'password');
+                    icon.text('visibility');
+                }
+            });
 
             // ================= DEPENDENT DROPDOWNS =================
             const dropIds = ['district', 'city', 'area', 'pincode'];
@@ -1045,7 +1148,23 @@ gap-4 text-xs font-bold text-slate-700">
                     $('#billing_address').val('');
                 }
             });
+            $('select[name="zone_id"]').on('change', function() {
+                const zoneId = $(this).val();
+                $('#sales_person').html('<option value="">Loading...</option>');
 
+                if (!zoneId) {
+                    $('#sales_person').html('<option value="">Select Sales Person</option>');
+                    return;
+                }
+
+                $.get("{{ url('get-bdm-by-zone') }}/" + zoneId, function(res) {
+                    let html = '<option value="">Select Sales Person</option>';
+                    res.forEach(u => {
+                        html += `<option value="${u.id}">${u.name}</option>`;
+                    });
+                    $('#sales_person').html(html);
+                });
+            });
 
             // Edit via Floating Bar
             $('#floating-edit').click(function() {
@@ -1054,10 +1173,14 @@ gap-4 text-xs font-bold text-slate-700">
 
                 editMode = true;
                 let editUrl = "{{ route('masters.fabricators.edit', ':id') }}".replace(':id', id);
-
+                $('#password').val('');
+                $('#togglePassword').text('visibility');
+                $('#password').attr('type', 'password');
                 $.get(editUrl, function(res) {
                     $('#fabricator_id').val(res.id);
                     $('#fabricator_name').val(res.shop_name);
+                    $('input[name="cust_id"]').val(res.cust_id);
+
                     // Existing checkbox
                     if (res.is_existing == 1) {
                         $('#is_existing').prop('checked', true);
@@ -1071,14 +1194,19 @@ gap-4 text-xs font-bold text-slate-700">
                     $('select[name="sub_segment"]').val(res.sub_segment);
 
                     $('input[name="contact_person"]').val(res.contact_person);
-                    $('input[name="sales_person"]').val(res.sales_person);
                     $('input[name="contact_mobile"]').val(res.contact_mobile);
                     $('input[name="email"]').val(res.email);
                     $('select[name="contact_type"]').val(res.contact_type);
 
-                    $('input[name="credit_terms"]').val(res.payment_credit_terms);
+                    $('input[name="payment_credit_terms"]').val(res.payment_credit_terms);
                     $('input[name="credit_limit"]').val(res.credit_limit);
+                    $('input[name="credit_days"]').val(res.credit_days);
                     $('select[name="zone_id"]').val(res.zone_id);
+                    $('select[name="zone_id"]').val(res.zone_id).trigger('change');
+
+                    setTimeout(() => {
+                        $('#sales_person').val(res.sales_person_id);
+                    }, 500);
 
 
                     // Set State and trigger chain
@@ -1111,50 +1239,72 @@ gap-4 text-xs font-bold text-slate-700">
                     $('.modal-content').removeClass('scale-95 opacity-0').addClass(
                         'scale-100 opacity-100');
                 }).fail(function() {
-                    alert("Could not fetch data.");
+                    toast.fire({
+                        icon: 'error',
+                        title: 'Please select records first'
+                    });
+
                 });
             });
 
             // Form Submission
             $('#fabricatorForm').submit(function(e) {
                 e.preventDefault();
-
                 const id = $('#fabricator_id').val();
-
-                let url = "{{ route('masters.fabricators.store') }}";
-
-                if (editMode) {
-                    url = "{{ url('masters/fabricators') }}/" + id;
-                    $('#method').val('PUT');
-                } else {
-                    $('#method').val('POST');
-                }
+                let url = editMode ? "{{ url('masters/fabricators') }}/" + id :
+                    "{{ route('masters.fabricators.store') }}";
+                $('#method').val(editMode ? 'PUT' : 'POST');
 
                 $.ajax({
                     url: url,
-                    type: 'POST', // Laravel will detect PUT via _method
+                    type: 'POST',
                     data: $(this).serialize(),
                     success: function() {
                         closeModal('fabricatorModal');
                         table.draw(false);
-                        // Reset Checkboxes and Floating Bar
-                        $('#selectAll, .row-checkbox').prop('checked', false);
-                        $('#selected-count').text(0);
-                        $('#floating-bar').addClass(
-                            'translate-y-20 opacity-0 pointer-events-none');
+
+                        // Success Toast
+                        Toastify({
+                            text: editMode ? "Fabricator Updated Successfully" :
+                                "Fabricator Created Successfully",
+                            duration: 3000,
+                            gravity: "top",
+                            position: "right",
+                            style: {
+                                background: "#10b981",
+                                borderRadius: "10px"
+                            } // Emerald-500
+                        }).showToast();
+
                         editMode = false;
                     },
                     error: function(xhr) {
-                        // This will show you exactly what failed in an alert if validation fails
                         if (xhr.status === 422) {
                             let errors = xhr.responseJSON.errors;
-                            let errorMsg = "";
+                            // Show each validation error as a separate toast
                             $.each(errors, function(key, value) {
-                                errorMsg += value[0] + "\n";
+                                Toastify({
+                                    text: value[0],
+                                    duration: 5000,
+                                    gravity: "top",
+                                    position: "right",
+                                    style: {
+                                        background: "#ef4444",
+                                        borderRadius: "10px"
+                                    } // Rose-500
+                                }).showToast();
                             });
-                            alert(errorMsg);
                         } else {
-                            alert("Something went wrong!");
+                            Toastify({
+                                text: "Something went wrong! Please check your connection.",
+                                duration: 3000,
+                                gravity: "top",
+                                position: "right",
+                                style: {
+                                    background: "#ef4444",
+                                    borderRadius: "10px"
+                                }
+                            }).showToast();
                         }
                     }
                 });
@@ -1214,23 +1364,45 @@ gap-4 text-xs font-bold text-slate-700">
                     ids.push($(this).val());
                 });
 
-                if (ids.length === 0) return;
-                if (!confirm(`Are you sure you want to delete ${ids.length} selected record(s)?`)) return;
+                if (ids.length === 0) {
+                    toast.fire({
+                        icon: 'error',
+                        title: 'Please select records first'
+                    });
+                    return;
+                }
 
-                $.ajax({
-                    url: "{{ route('masters.fabricators.bulkDelete') }}",
-                    type: "POST",
-                    data: {
-                        ids: ids
-                    },
-                    success: function() {
-                        table.draw(false);
-                        $('#selectAll, .row-checkbox').prop('checked', false);
-                        $('#selected-count').text(0);
-                        $('#floating-bar').addClass('translate-y-20 opacity-0 pointer-events-none');
-                    }
+                Swal.fire({
+                    title: 'Confirm Delete',
+                    text: `Delete ${ids.length} selected record(s)?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Delete'
+                }).then((result) => {
+                    if (!result.isConfirmed) return;
+
+                    $.ajax({
+                        url: "{{ route('masters.fabricators.bulkDelete') }}",
+                        type: "POST",
+                        data: {
+                            ids: ids
+                        },
+                        success: function() {
+                            table.draw(false);
+                            $('#selectAll, .row-checkbox').prop('checked', false);
+                            $('#selected-count').text(0);
+                            $('#floating-bar').addClass(
+                                'translate-y-20 opacity-0 pointer-events-none');
+
+                            toast.fire({
+                                icon: 'success',
+                                title: 'Records deleted successfully'
+                            });
+                        }
+                    });
                 });
             };
+
         });
     </script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />

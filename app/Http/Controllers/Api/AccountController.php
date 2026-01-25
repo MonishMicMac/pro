@@ -13,26 +13,80 @@ use Illuminate\Support\Facades\Validator;
 
 class AccountController extends Controller
 {
-    public function index(Request $request)
+    // public function index(Request $request)
+    // {
+    //     // 1. Validate the Zone ID
+    //     $validator = Validator::make($request->all(), [
+    //         'zone_id' => 'required|exists:zones,id'
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'success' => false, 
+    //             'message' => $validator->errors()->first()
+    //         ], 422);
+    //     }
+
+    //     // 2. Fetch Accounts filtered by Zone ID
+    //     $accounts = Account::with(['zone', 'state', 'district', 'accountType'])
+    //         ->where('action', '0') // Active accounts
+    //         ->where('zone_id', $request->zone_id) // <--- Added Filter
+    //         ->latest()
+    //         ->get();
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'count'   => count($accounts),
+    //         'data'    => $accounts
+    //     ]);
+    // }
+
+public function index(Request $request)
     {
-        // 1. Validate the Zone ID
+        // 1. Validate
         $validator = Validator::make($request->all(), [
             'zone_id' => 'required|exists:zones,id'
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false, 
-                'message' => $validator->errors()->first()
-            ], 422);
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
         }
 
-        // 2. Fetch Accounts filtered by Zone ID
+        // 2. Fetch and Transform
         $accounts = Account::with(['zone', 'state', 'district', 'accountType'])
-            ->where('action', '0') // Active accounts
-            ->where('zone_id', $request->zone_id) // <--- Added Filter
+            ->where('action', '0')
+            ->where('zone_id', $request->zone_id)
             ->latest()
-            ->get();
+            ->get()
+            ->map(function ($account) {
+                return [
+                    // Account Basic Details
+                    'id'              => $account->id,
+                    'name'            => $account->name,
+                    'mobile_number'   => $account->mobile_number,
+                    'address'         => $account->address,
+                    'pincode'         => $account->pincode,
+                    'user_id'         => $account->user_id,
+                    'action'          => $account->action,
+
+                    // --- Flattened Relationships (ID & Name) ---
+                    'zone_id'         => $account->zone_id,
+                    'zone_name'       => $account->zone?->name,
+
+                    'state_id'        => $account->state_id,
+                    'state_name'      => $account->state?->name,
+
+                    'district_id'     => $account->district_id,
+                    'district_name'   => $account->district?->district_name,
+
+                    'account_type_id' => $account->account_type_id,
+                    'account_type'    => $account->accountType?->name,
+                    // -------------------------------------------
+
+                    'created_at'      => $account->created_at,
+                    'updated_at'      => $account->updated_at,
+                ];
+            });
 
         return response()->json([
             'success' => true,

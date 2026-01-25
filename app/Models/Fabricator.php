@@ -25,6 +25,7 @@ class Fabricator extends Authenticatable
     protected $guard_name = 'fabricator';
     protected $fillable = [
         'shop_name',
+        'cust_id',
         'password',
         'email',
 
@@ -53,10 +54,12 @@ class Fabricator extends Authenticatable
         'branch',
         'payment_credit_terms',
         'credit_limit',
+        'credit_days',
+
 
         // CONTACT
         'contact_person',
-        'sales_person',
+        'sales_person_id',
         'contact_type',
         'email',
         'mobile',
@@ -122,5 +125,9 @@ class Fabricator extends Authenticatable
     public function zone()
     {
         return $this->belongsTo(Zone::class, 'zone_id');
+    }
+    public function salesPerson()
+    {
+        return $this->belongsTo(User::class, 'sales_person_id');
     }
 }

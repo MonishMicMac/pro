@@ -17,7 +17,7 @@ class BdmCallReportController extends Controller
         return view('bdm_call_reports.index', compact('bdms'));
     }
 
-    public function getData(Request $request)
+public function getData(Request $request)
     {
         $query = BdmCall::with(['bdm', 'callable'])
             ->select('bdm_calls.*');
@@ -44,17 +44,21 @@ class BdmCallReportController extends Controller
             ->addColumn('bdm_name', function ($row) {
                 return $row->bdm->name ?? '<span class="text-slate-400 italic">Unknown</span>';
             })
+            // --- FIX IS HERE: Added 'User' case ---
             ->addColumn('client_type', function ($row) {
                 $type = class_basename($row->callable_type); 
                 return match($type) {
                     'Account' => '<span class="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">Account</span>',
                     'Lead' => '<span class="px-2 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-bold uppercase">Lead</span>',
                     'Fabricator' => '<span class="px-2 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-bold uppercase">Fabricator</span>',
+                    'User' => '<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">BDO</span>', // Added This
                     default => '<span class="text-slate-400">Unknown</span>'
                 };
             })
             ->addColumn('client_name', function ($row) {
                 if (!$row->callable) return '<span class="text-slate-400">-</span>';
+                
+                // Fabricators have shop_name, Users/Accounts/Leads usually have name
                 if ($row->callable_type == 'App\Models\Fabricator') {
                     return $row->callable->shop_name ?? $row->callable->name;
                 }
@@ -63,7 +67,6 @@ class BdmCallReportController extends Controller
             ->editColumn('duration', function ($row) {
                 return '<span class="font-mono text-slate-600 font-bold">' . ($row->duration ?? '00:00') . '</span>';
             })
-            // --- FIX 1: UPDATED STATUS ICONS & HTML ---
             ->editColumn('call_status', function ($row) {
                 $status = strtolower($row->call_status);
                 
@@ -71,14 +74,12 @@ class BdmCallReportController extends Controller
                     return '<div class="inline-flex items-center gap-1.5 text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"><span class="material-symbols-outlined text-[16px]">call</span> Connected</div>';
                 } 
                 elseif (str_contains($status, 'busy')) {
-                    // Changed icon to 'phone_paused' for better compatibility
                     return '<div class="inline-flex items-center gap-1.5 text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-md border border-amber-100"><span class="material-symbols-outlined text-[16px]">phone_paused</span> Busy</div>';
                 } 
                 else {
                     return '<div class="inline-flex items-center gap-1.5 text-red-500 font-bold bg-red-50 px-2 py-1 rounded-md border border-red-100"><span class="material-symbols-outlined text-[16px]">phone_missed</span> No Answer</div>';
                 }
             })
-            // --- FIX 2: REMOVED LIMIT ON REMARKS ---
             ->editColumn('remarks', function ($row) {
                 return $row->remarks ?? '-'; 
             })

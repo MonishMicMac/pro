@@ -13,7 +13,7 @@ use App\Models\LeadVisit;
 use App\Models\MeasurementDetail;
 use App\Helpers\LeadHelper;
 use App\Models\DigitalMarketingLead;
-
+use App\Helpers\FileUploadHelper;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -23,13 +23,14 @@ class LeadController extends Controller
 {
 public function storeSiteIdentification(Request $request)
 {
+    // 1. Validate the Request
     $validator = Validator::make($request->all(), [
         'user_id'          => 'required|exists:users,id',
         'city'             => 'required|string|max:255',
         'site_owner_name'  => 'nullable|string|max:255',
-        'site_owner_mobile_number'  => 'nullable|string|max:255',
-        'deciding_authority'  => 'nullable|string|max:255',
-        'deciding_authority_mobile_number'  => 'nullable|string|max:255',
+        'site_owner_mobile_number' => 'nullable|string|max:255',
+        'deciding_authority' => 'nullable|string|max:255',
+        'deciding_authority_mobile_number' => 'nullable|string|max:255',
         'site_area'        => 'required|string|max:255',
         'site_address'     => 'required|string',
         'latitude'         => 'required|numeric|between:-90,90',
@@ -46,6 +47,7 @@ public function storeSiteIdentification(Request $request)
         ], 422);
     }
 
+    // 2. Create the Lead Record
     $lead = Lead::create([
         'user_id'          => $request->user_id,
         'city'             => $request->city,
@@ -55,24 +57,40 @@ public function storeSiteIdentification(Request $request)
         'longitude'        => $request->longitude,
         'type_of_building' => $request->type_of_building,
         'building_status'  => $request->building_status,
-
-        // System-controlled fields
-        'lead_stage'  => 0,
-        'lead_source' => 'OWN',
-        'status'      => '0',
-        'created_by'  => $request->user_id,
+        
+        // System fields
+        'lead_stage'       => 0,
+        'lead_source'      => 'OWN',
+        'status'           => '0',
+        'created_by'       => $request->user_id,
     ]);
 
+    // 3. Handle Image Upload via S3 Helper
     if ($request->hasFile('image')) {
-        $imagePath = $request->file('image')->store('lead_images', 'public');
-        \App\Models\LeadImage::create([
-            'lead_id'    => $lead->id,
-            'lead_stage' => '0',
-            'img_path'   => $imagePath,
-            'action'     => '0'
-        ]);
+        
+        // Call the helper function
+        $upload = FileUploadHelper::uploadToS3($request->file('image'), 'lead_images');
+
+        if ($upload['status'] === true) {
+            
+            // Create the LeadImage record using the S3 URL
+            \App\Models\LeadImage::create([
+                'lead_id'    => $lead->id,
+                'lead_stage' => '0',
+                'img_path'   => $upload['url'], // Saves the full S3 URL
+                'action'     => '0'
+            ]);
+
+        } else {
+            // Optional: If upload fails, you might want to delete the lead or return an error
+            return response()->json([
+                'status' => false, 
+                'message' => 'Image upload failed: ' . $upload['message']
+            ], 500);
+        }
     }
 
+    // 4. Return Success Response
     return response()->json([
         'status'  => true,
         'message' => 'Site identification created successfully',
@@ -80,53 +98,110 @@ public function storeSiteIdentification(Request $request)
             'id'         => $lead->id,
             'lead_stage' => $lead->lead_stage,
             'created_at' => $lead->created_at,
+            // You can return the file details in the response if needed:
+            'image_url'  => $upload['url'] ?? null,
+            'file_name'  => $upload['file_name'] ?? null,
         ],
     ], 200);
 }
 
 
 
-// Add this to your existing LeadController
+
+// // Add this to your existing LeadController
+
+// public function getLeadsByUser(Request $request)
+// {
+//     // 1. Validate the input
+//     $validator = Validator::make($request->all(), [
+//         'user_id'   => 'required|exists:users,id',
+//         'from_date' => 'nullable|date',
+//         'to_date'   => 'nullable|date|after_or_equal:from_date',
+//     ]);
+
+//     if ($validator->fails()) {
+//         return response()->json([
+//             'status'  => false,
+//             'message' => $validator->errors()->first(),
+//         ], 422);
+//     }
+
+//     // 2. Start the query
+//     $query = Lead::where('user_id', $request->user_id);
+
+//     // 3. Apply optional date filters (using created_at)
+//     if ($request->filled('from_date')) {
+//         $query->whereDate('created_at', '>=', $request->from_date);
+//     }
+
+//     if ($request->filled('to_date')) {
+//         $query->whereDate('created_at', '<=', $request->to_date);
+//     }
+
+//     // 4. Get the results (ordered by newest first)
+//     $leads = $query->orderBy('created_at', 'desc')->get();
+
+//     return response()->json([
+//         'status'  => true,
+//         'message' => 'Leads retrieved successfully',
+//         'count'   => $leads->count(),
+//         'data'    => $leads,
+//     ], 200);
+// }
 
 public function getLeadsByUser(Request $request)
-{
-    // 1. Validate the input
-    $validator = Validator::make($request->all(), [
-        'user_id'   => 'required|exists:users,id',
-        'from_date' => 'nullable|date',
-        'to_date'   => 'nullable|date|after_or_equal:from_date',
-    ]);
+    {
+        // 1. Validate the input
+        $validator = Validator::make($request->all(), [
+            'user_id'   => 'required|exists:users,id',
+            'from_date' => 'nullable|date',
+            'to_date'   => 'nullable|date|after_or_equal:from_date',
+        ]);
 
-    if ($validator->fails()) {
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        // 2. Fetch and Map the data
+        // If lead_source or priority are relationships, add ->with(['relationName']) here
+        $leads = Lead::where('user_id', $request->user_id)
+            // Apply Date Filters if present
+            ->when($request->filled('from_date'), function ($query) use ($request) {
+                return $query->whereDate('created_at', '>=', $request->from_date);
+            })
+            ->when($request->filled('to_date'), function ($query) use ($request) {
+                return $query->whereDate('created_at', '<=', $request->to_date);
+            })
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($lead) {
+                return [
+                    'id'           => $lead->id,
+                    'user_id'      => $lead->user_id,
+                    'name'         => $lead->name,
+                    
+                    // Maps DB column 'mobile_number' (if that's what you use) to 'phone_number'
+                    'phone_number' => $lead->mobile_number ?? $lead->phone_number, 
+                    
+                    'email'        => $lead->email,
+                    'city'         => $lead->city, 
+                    'priority'     => $lead->priority,
+                    
+                    // If this is a relationship ID in DB, change to: $lead->sourceRelation?->name
+                    'lead_source'  => $lead->lead_source, 
+                    
+                    'lead_stage'   => $lead->lead_stage,
+                ];
+            });
+
         return response()->json([
-            'status'  => false,
-            'message' => $validator->errors()->first(),
-        ], 422);
+            'status'  => true,
+            'message' => 'Leads retrieved successfully',
+            'count'   => $leads->count(),
+            'data'    => $leads,
+        ], 200);
     }
-
-    // 2. Start the query
-    $query = Lead::where('user_id', $request->user_id);
-
-    // 3. Apply optional date filters (using created_at)
-    if ($request->filled('from_date')) {
-        $query->whereDate('created_at', '>=', $request->from_date);
-    }
-
-    if ($request->filled('to_date')) {
-        $query->whereDate('created_at', '<=', $request->to_date);
-    }
-
-    // 4. Get the results (ordered by newest first)
-    $leads = $query->orderBy('created_at', 'desc')->get();
-
-    return response()->json([
-        'status'  => true,
-        'message' => 'Leads retrieved successfully',
-        'count'   => $leads->count(),
-        'data'    => $leads,
-    ], 200);
-}
-
+    
 /**
  * Create a Visit Schedule BDO
  */
@@ -146,8 +221,8 @@ public function storeSchedule(Request $request)
             'before_or_equal:' . $maxDate
         ],
         'visits'         => 'required|array|min:1',
+        'remarks'         => 'nullable',
         'visits.*.visit_type' => 'required|in:1,2,3',
-        'visits.*.work_type'  => 'required|in:Individual,Joint Work',
     ], [
         'schedule_date.before_or_equal' => 'You can only schedule visits up to 25 days in advance.',
         'schedule_date.after_or_equal'  => 'The schedule date cannot be in the past.'
@@ -176,15 +251,14 @@ public function storeSchedule(Request $request)
                 'fabricator_id'  => ($visitItem['visit_type'] == 3) ? ($visitItem['fabricator_id'] ?? null) : null,
                 
                 'visit_type'     => $visitItem['visit_type'],
-                'work_type'      => $visitItem['work_type'] ?? 'Individual',
                 
-                // Use user_id as BDM if it's the manager creating it
-                'bdm_id'         => $request->user_id, 
-                'bdo_id'         => $visitItem['bdo_id'] ?? null,
+                'bdo_id'         => $request->user_id,
                 
                 // Shared values from the top level
                 'food_allowance' => $request->food_allowance,
                 'schedule_date'  => $request->schedule_date,
+                'remarks'        => $request->remarks,
+
                 
                 'action'         => '0', 
             ]);
@@ -263,6 +337,35 @@ public function leadCheckIn(Request $request)
     try {
         // 1. Find the existing schedule record
         $visit = LeadVisit::find($request->visit_id);
+
+        // --- RESTRICTION LOGIC STARTS HERE ---
+        
+        // A. Prevent checking in twice to the SAME visit
+        if (!empty($visit->intime_time)) {
+             return response()->json([
+                'status'  => false,
+                'message' => 'You have already checked in for this visit at ' . $visit->intime_time
+            ], 403);
+        }
+
+        // B. Check if the user has ANY other active visit (Checked In but NOT Checked Out)
+        // We assume 'user_id' exists on the lead_visits table. 
+        // If it is on the 'leads' table, use $visit->lead->user_id
+        $userId = $visit->user_id; 
+
+        $ongoingVisit = LeadVisit::where('user_id', $userId)
+            ->whereNotNull('intime_time') // They have checked in...
+            ->whereNull('out_time')       // ...but haven't checked out yet
+            ->where('id', '!=', $visit->id) // Exclude the current row just in case
+            ->first();
+
+        if ($ongoingVisit) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Restriction: You have an ongoing visit (ID: '.$ongoingVisit->id.') that is not completed. Please check out from there first.'
+            ], 403);
+        }
+        // --- RESTRICTION LOGIC ENDS HERE ---
 
         // 3. Update the existing record
         $visit->update([
@@ -360,6 +463,23 @@ public function leadCheckIn(Request $request)
 
             // 4. Find the Visit and Lead
             $visit = LeadVisit::find($request->visit_id);
+
+            // You cannot check out if you never checked in
+            if (empty($visit->intime_time)) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'You cannot check out because you have not checked in yet.'
+                ], 403);
+            }
+        
+            // You cannot check out if already checked out
+            if (!empty($visit->out_time)) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'You have already checked out of this visit.'
+                ], 403);
+            }
+            // --------------------
 
             // Safety Check: If visit is invalid, stop here (prevents 500 error on next line)
             if (!$visit) {
@@ -687,66 +807,85 @@ public function getUnplannedScheduleList(Request $request)
 }
 
 /**
- * Unplanned Check-in
- * Updates intime_time, visit_date, inlat, inlong, and image for an unplanned visit bdo
- */
-public function unplannedCheckIn(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'visit_id' => 'required|exists:lead_visits,id', 
-        'inlat'    => 'required',
-        'inlong'   => 'required',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'status'  => false, 
-            'message' => $validator->errors()->first()
-        ], 422);
-    }
-
-    try {
-        // 1. Find the existing unplanned record
-        $visit = LeadVisit::find($request->visit_id);
-
-        // 2. Security Check
-        if ($visit->type !== 'unplanned') {
-            return response()->json([
-                'status' => false,
-                'message' => 'This record is not an unplanned visit.'
-            ], 400);
-        }
-
-        // --- NEW CHECK: Prevent duplicate In-Time ---
-        if (!empty($visit->intime_time)) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Check-in already done for this visit.'
-            ], 400);
-        }
-
-        // 4. Update the record
-        $visit->update([
-            'visit_date'  => Carbon::now()->format('Y-m-d'),
-            'intime_time' => Carbon::now()->format('H:i:s'),
-            'inlat'       => $request->inlat,
-            'inlong'      => $request->inlong,
-            'action'      => '1', // Setting to '1' (In-Progress)
+     * Unplanned Check-in
+     * Updates intime_time, visit_date, inlat, inlong, and image for an unplanned visit bdo
+     */
+    public function unplannedCheckIn(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'visit_id' => 'required|exists:lead_visits,id',
+            'inlat'    => 'required',
+            'inlong'   => 'required',
         ]);
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Unplanned Check-in successful',
-            'data'    => $visit
-        ], 200);
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
 
-    } catch (\Exception $e) {
-        return response()->json([
-            'status'  => false,
-            'message' => 'Error: ' . $e->getMessage()
-        ], 500);
+        try {
+            // 1. Find the existing unplanned record
+            $visit = LeadVisit::find($request->visit_id);
+
+            // 2. Security Check (Must be unplanned)
+            if ($visit->type !== 'unplanned') {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'This record is not an unplanned visit.'
+                ], 400);
+            }
+
+            // 3. Prevent duplicate In-Time (Already checked in)
+            if (!empty($visit->intime_time)) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Check-in already done for this visit.'
+                ], 400);
+            }
+
+            // --- RESTRICTION LOGIC START ---
+            // Check if user has ANY other active visit (Checked In but NOT Checked Out)
+            // We look for any visit for this user where intime is set, outtime is null, and ID is different
+            $userId = $visit->user_id; 
+
+            $ongoingVisit = LeadVisit::where('user_id', $userId)
+                ->whereNotNull('intime_time') // Checked in...
+                ->whereNull('out_time')       // ...but not checked out
+                ->where('id', '!=', $visit->id) 
+                ->first();
+
+            if ($ongoingVisit) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Restriction: You have an ongoing visit (ID: ' . $ongoingVisit->id . ') that is not completed. Please check out from there first.'
+                ], 403);
+            }
+            // --- RESTRICTION LOGIC END ---
+
+            // 4. Update the record
+            $visit->update([
+                'visit_date'  => Carbon::now()->format('Y-m-d'),
+                'intime_time' => Carbon::now()->format('H:i:s'),
+                'inlat'       => $request->inlat,
+                'inlong'      => $request->inlong,
+                'action'      => '1', // Setting to '1' (In-Progress)
+            ]);
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Unplanned Check-in successful',
+                'data'    => $visit
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
     }
-}
 
 
 
@@ -1313,7 +1452,7 @@ public function storeOrConvertToNewLead(Request $request)
         'total_required_area_sqft' => $request->total_required_area_sqft,
         'building_status'  => $request->building_status,
         'type_of_building' => $request->type_of_building,
-        'lead_stage'       => 1,
+        'lead_stage'       => 0,
         'lead_source'      => 'OWN',
         'status'           => 0,
         'created_by'       => $request->user_id,
@@ -1323,7 +1462,7 @@ public function storeOrConvertToNewLead(Request $request)
         $imagePath = $request->file('image')->store('lead_images', 'public');
         \App\Models\LeadImage::create([
             'lead_id'    => $lead->id,
-            'lead_stage' => '1',
+            'lead_stage' => '0',
             'img_path'   => $imagePath,
             'action'     => '0'
         ]);
@@ -1447,7 +1586,24 @@ public function getLeadDetails(Request $request)
         ], 422);
     }
 
-    $lead = Lead::where('id', $request->lead_id)->first();
+    $lead = Lead::find($request->lead_id);
+
+    // 1. Define the Stage Mapping
+    $stages = [
+        0 => 'Site Identification',
+        1 => 'Intro Stage',
+        2 => 'Follow-up Meeting',
+        3 => 'Quotation Pending',
+        4 => 'Quotation Sent',
+        5 => 'Won',
+        6 => 'Site Handover',
+        7 => 'Lost',
+        // Add other stages if you have them
+    ];
+
+    // 2. Append the text format to the lead object
+    // usage of '??' handles cases where the stage ID might not be in the array
+    $lead->lead_stage_text = $stages[$lead->lead_stage] ?? 'Unknown Stage';
 
     return response()->json([
         'status'  => true,

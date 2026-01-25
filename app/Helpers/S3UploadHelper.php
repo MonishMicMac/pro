@@ -4,40 +4,35 @@ namespace App\Helpers;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Str;
 
-class S3UploadHelper
+class FileUploadHelper
 {
-    public static function upload(UploadedFile $file, string $folder, bool $public = true): array
+    /**
+     * Upload a file to S3 and return the path/URL.
+     *
+     * @param UploadedFile $file
+     * @param string $folder
+     * @return string|bool
+     */
+    public static function uploadToS3(UploadedFile $file, $folder = 'uploads')
     {
-        $fileName = time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
-        $path = trim($folder, '/') . '/' . $fileName;
+        try {
+            // Attempt to upload to S3 with public visibility
+            $path = Storage::disk('s3')->put($folder, $file, [
+                'visibility' => 'public',
+                'ACL' => 'public-read',
+            ]);
 
-        $options = $public
-            ? ['visibility' => 'public', 'ACL' => 'public-read']
-            : [];
+            if (!$path) {
+                return false;
+            }
 
-        // 1️⃣ Attempt upload
-        $uploaded = Storage::disk('s3')->put(
-            $path,
-            fopen($file->getRealPath(), 'r'),
-            $options
-        );
+            // Return the full URL (or just $path if you prefer storing relative paths)
+            return Storage::disk('s3')->url($path);
 
-        // 2️⃣ Check upload result
-        if ($uploaded !== true) {
-            throw new \Exception('S3 upload failed: put() returned false');
+        } catch (\Exception $e) {
+            // Log the error if needed: \Log::error($e->getMessage());
+            return false;
         }
-
-        // 3️⃣ Double-check file exists on S3
-        if (!Storage::disk('s3')->exists($path)) {
-            throw new \Exception('S3 upload failed: file not found after upload');
-        }
-
-        return [
-            'path' => $path,
-            'url'  => $public ? Storage::disk('s3')->url($path) : null,
-            'name' => $fileName,
-        ];
     }
 }

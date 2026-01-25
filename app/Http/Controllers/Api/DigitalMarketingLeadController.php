@@ -28,14 +28,7 @@ public function store(Request $request): JsonResponse
     }
 
 
-    // Validate Phone Number Format (10 digits, starting with 6-9)
-    // pattern: ^ starts with, [6-9] first digit, [0-9]{9} next 9 digits, $ end
-    if (!preg_match('/^[6-9][0-9]{9}$/', $request->phone_number)) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Invalid phone number. It must be a 10-digit mobile number starting with 6, 7, 8, or 9.'
-        ], 422);
-    }
+
 
     // --- 2. DUPLICATE CHECK LOGIC ---
 

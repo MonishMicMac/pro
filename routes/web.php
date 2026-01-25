@@ -139,6 +139,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('get-cities/{district_id}', [App\Http\Controllers\Master\FabricatorController::class, 'getCities'])->name('dropdown.cities');
     Route::get('get-areas/{city_id}', [App\Http\Controllers\Master\FabricatorController::class, 'getAreas'])->name('dropdown.areas');
     Route::get('get-pincodes/{area_id}', [App\Http\Controllers\Master\FabricatorController::class, 'getPincodes'])->name('dropdown.pincodes');
+    Route::get('get-bdm-by-zone/{zone}', [App\Http\Controllers\Master\FabricatorController::class, 'getBdmByZone']);
+
 
     // Role & User Management
     Route::get('/roles/data', [RoleController::class, 'getData'])->name('roles.data');
@@ -262,81 +264,79 @@ Route::get('prospect-report', [App\Http\Controllers\ProspectController::class, '
 
 Route::get('prospect-report/data', [App\Http\Controllers\ProspectController::class, 'data'])
     ->name('prospect.report.data');
-    
+
 Route::get('bdo-targets/data', [App\Http\Controllers\BdoTargetController::class, 'getData'])->name('bdo-targets.data');
 Route::resource('bdo-targets', App\Http\Controllers\BdoTargetController::class);
 
 Route::prefix('tourplan-report')->name('tour-plans.')->group(function () {
-        
-        // 1. View Page
-        // Usage: route('tour-plans.index')
-        Route::get('/', [TourPlanController::class, 'index'])
-            ->name('index')
-            ->middleware(['permission:tourplan-report.view']);
 
-        // 2. Main Table Data (AJAX for DataTable)
-        // Usage: route('tour-plans.data')
-        Route::get('/data', [TourPlanController::class, 'getData'])
-            ->name('data')
-            ->middleware(['permission:tourplan-report.view']);
+    // 1. View Page
+    // Usage: route('tour-plans.index')
+    Route::get('/', [TourPlanController::class, 'index'])
+        ->name('index')
+        ->middleware(['permission:tourplan-report.view']);
 
-        // 3. Modal Details (AJAX for Joint/Individual Work)
-        // Usage: route('tour-plans.details')
-        Route::get('/details', [TourPlanController::class, 'getDetails'])
-            ->name('details')
-            ->middleware(['permission:tourplan-report.view']);
-            
-    });
+    // 2. Main Table Data (AJAX for DataTable)
+    // Usage: route('tour-plans.data')
+    Route::get('/data', [TourPlanController::class, 'getData'])
+        ->name('data')
+        ->middleware(['permission:tourplan-report.view']);
 
-    Route::prefix('bdm-tourplan-report')->name('bdm-tour-plans.')->group(function () {
-        
-        Route::get('/', [BdmTourPlanController::class, 'index'])
-            ->name('index')
-            ->middleware(['permission:tourplan-report.view']); // Or create a specific bdm permission
+    // 3. Modal Details (AJAX for Joint/Individual Work)
+    // Usage: route('tour-plans.details')
+    Route::get('/details', [TourPlanController::class, 'getDetails'])
+        ->name('details')
+        ->middleware(['permission:tourplan-report.view']);
+});
 
-        Route::get('/data', [BdmTourPlanController::class, 'getData'])
-            ->name('data')
-            ->middleware(['permission:tourplan-report.view']);
+Route::prefix('bdm-tourplan-report')->name('bdm-tour-plans.')->group(function () {
 
-        Route::get('/details', [BdmTourPlanController::class, 'getDetails'])
-            ->name('details')
-            ->middleware(['permission:tourplan-report.view']);
-            
-    });
+    Route::get('/', [BdmTourPlanController::class, 'index'])
+        ->name('index')
+        ->middleware(['permission:tourplan-report.view']); // Or create a specific bdm permission
 
-    // Prefix: /bdo-consolidate-report
-    Route::prefix('bdo-consolidate-report')->name('bdo-consolidate.')->group(function () {
-        
-        Route::get('/', [BdoConsolidateReportController::class, 'index'])
-            ->name('index')
-            ->middleware(['permission:tourplan-report.view']); // Or create specific permission
+    Route::get('/data', [BdmTourPlanController::class, 'getData'])
+        ->name('data')
+        ->middleware(['permission:tourplan-report.view']);
 
-        Route::get('/data', [BdoConsolidateReportController::class, 'getData'])
-            ->name('data')
-            ->middleware(['permission:tourplan-report.view']);
-    });
+    Route::get('/details', [BdmTourPlanController::class, 'getDetails'])
+        ->name('details')
+        ->middleware(['permission:tourplan-report.view']);
+});
 
-    Route::prefix('bdm-consolidate-report')->name('bdm-consolidate.')->group(function () {
-        
-        Route::get('/', [BdmConsolidateReportController::class, 'index'])
-            ->name('index')
-            ->middleware(['permission:tourplan-report.view']); 
+// Prefix: /bdo-consolidate-report
+Route::prefix('bdo-consolidate-report')->name('bdo-consolidate.')->group(function () {
 
-        Route::get('/data', [BdmConsolidateReportController::class, 'getData'])
-            ->name('data')
-            ->middleware(['permission:tourplan-report.view']);
-    });
+    Route::get('/', [BdoConsolidateReportController::class, 'index'])
+        ->name('index')
+        ->middleware(['permission:tourplan-report.view']); // Or create specific permission
 
-    Route::prefix('bdo-joint-visit-report')->name('bdo-joint-visits.')->group(function () {
-        
-        Route::get('/', [BdoJointWorkReportController::class, 'index'])
-            ->name('index')
-            ->middleware(['permission:tourplan-report.view']); // Use appropriate permission
+    Route::get('/data', [BdoConsolidateReportController::class, 'getData'])
+        ->name('data')
+        ->middleware(['permission:tourplan-report.view']);
+});
 
-        Route::get('/data', [BdoJointWorkReportController::class, 'getData'])
-            ->name('data')
-            ->middleware(['permission:tourplan-report.view']);
-    });
+Route::prefix('bdm-consolidate-report')->name('bdm-consolidate.')->group(function () {
 
-    Route::get('bdm-call-reports', [BdmCallReportController::class, 'index'])->name('bdm-call-reports.index');
+    Route::get('/', [BdmConsolidateReportController::class, 'index'])
+        ->name('index')
+        ->middleware(['permission:tourplan-report.view']);
+
+    Route::get('/data', [BdmConsolidateReportController::class, 'getData'])
+        ->name('data')
+        ->middleware(['permission:tourplan-report.view']);
+});
+
+Route::prefix('bdo-joint-visit-report')->name('bdo-joint-visits.')->group(function () {
+
+    Route::get('/', [BdoJointWorkReportController::class, 'index'])
+        ->name('index')
+        ->middleware(['permission:tourplan-report.view']); // Use appropriate permission
+
+    Route::get('/data', [BdoJointWorkReportController::class, 'getData'])
+        ->name('data')
+        ->middleware(['permission:tourplan-report.view']);
+});
+
+Route::get('bdm-call-reports', [BdmCallReportController::class, 'index'])->name('bdm-call-reports.index');
 Route::get('bdm-call-reports/data', [BdmCallReportController::class, 'getData'])->name('bdm-call-reports.data');

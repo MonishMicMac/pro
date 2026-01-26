@@ -174,6 +174,8 @@ class FabricatorController extends Controller
             'credit_limit' => $request->credit_limit,
             'contact_person' => $request->contact_person,
             'sales_person_id' => $request->sales_person_id,
+            'net' => $request->net,
+
 
             'contact_type' => $request->contact_type,
             'email' => $request->email,
@@ -300,4 +302,18 @@ class FabricatorController extends Controller
             compact('fabricator')
         );
     }
+
+      public function stockData(Request $request, $id)
+    {
+        $query = \App\Models\FabricatorStockManagement::where('fabricator_id', $id)
+            ->with(['product', 'fabricator']) // Assuming relationships exist
+            ->orderBy('created_at', 'desc');
+
+        return DataTables::of($query)
+            ->addColumn('product_name', fn($row) => $row->product->name ?? '-') // Adjust 'name' if Product model uses different column
+            ->addColumn('updated_at_formatted', fn($row) => $row->created_at->format('d M Y h:i A'))
+            ->addColumn('updated_by_name', fn($row) => \App\Models\User::find($row->updated_by)->name ?? '-')
+            ->make(true);
+    }
+    
 }

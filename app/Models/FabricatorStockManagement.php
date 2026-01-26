@@ -4,8 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\User;
+
+use App\Models\Fabricator;
 use App\Models\Product; // Assuming you have a Product model
+
 
 class FabricatorStockManagement extends Model
 {
@@ -32,9 +34,9 @@ class FabricatorStockManagement extends Model
      */
     public function fabricator()
     {
-        // Assuming 'fabricator_id' links to the 'users' table
-        return $this->belongsTo(User::class, 'fabricator_id');
+        return $this->belongsTo(Fabricator::class, 'fabricator_id');
     }
+
 
     /**
      * Get the product associated with this stock.

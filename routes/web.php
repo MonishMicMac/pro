@@ -15,7 +15,8 @@ use App\Http\Controllers\BdoConsolidateReportController;
 use App\Http\Controllers\BdmConsolidateReportController;
 use App\Http\Controllers\BdoJointWorkReportController;
 use App\Http\Controllers\BdmCallReportController;
-
+use App\Http\Controllers\AssignLeadsController;
+use App\Http\Controllers\TelecallerController;
 
 // Public Routes
 Route::get('login', [LoginController::class, 'index'])->name('login');
@@ -116,6 +117,10 @@ Route::middleware(['auth'])->group(function () {
             'fabricators/{id}/show',
             [App\Http\Controllers\Master\FabricatorController::class, 'show']
         )->name('fabricators.show');
+   Route::get(
+            'fabricators/{id}/stock',
+            [App\Http\Controllers\Master\FabricatorController::class, 'stockData']
+        )->name('fabricators.stockData');
 
 
         Route::post('zones/bulk-delete', [App\Http\Controllers\Master\ZoneController::class, 'bulkDelete'])->name('zones.bulkDelete');
@@ -240,6 +245,15 @@ Route::get('fabricator-report/location-data', [App\Http\Controllers\FabricatorRe
 Route::get('fabricator-report/data', [App\Http\Controllers\FabricatorReportController::class, 'data'])->name('fabricator.report.data');
 
 
+Route::get('fabricator-stock-report', [App\Http\Controllers\FabricatorStockReportController::class, 'index'])->name('fabricator-stock.report');
+Route::get('fabricator-stock-report/data', [App\Http\Controllers\FabricatorStockReportController::class, 'data'])->name('fabricator-stock.report.data');
+Route::get('fabricator-stock-report/categories', [App\Http\Controllers\FabricatorStockReportController::class, 'getCategories'])->name('fabricator-stock.report.categories');
+Route::get('fabricator-stock-report/sub-categories', [App\Http\Controllers\FabricatorStockReportController::class, 'getSubCategories'])->name('fabricator-stock.report.sub-categories');
+Route::get('fabricator-stock-report/products', [App\Http\Controllers\FabricatorStockReportController::class, 'getProducts'])->name('fabricator-stock.report.products');
+
+
+
+
 Route::get('quotation-report', [App\Http\Controllers\QuotationReportController::class, 'index'])->name('quotation.report');
 Route::get('quotation-report/location-data', [App\Http\Controllers\QuotationReportController::class, 'getHierarchicalData'])->name('quotation.report.location-data');
 Route::get('quotation-report/data', [App\Http\Controllers\QuotationReportController::class, 'data'])->name('quotation.report.data');
@@ -340,3 +354,8 @@ Route::prefix('bdo-joint-visit-report')->name('bdo-joint-visits.')->group(functi
 
 Route::get('bdm-call-reports', [BdmCallReportController::class, 'index'])->name('bdm-call-reports.index');
 Route::get('bdm-call-reports/data', [BdmCallReportController::class, 'getData'])->name('bdm-call-reports.data');
+
+Route::get('/assign-leads', [AssignLeadsController::class, 'index'])->name('assign-leads.index');
+Route::post('/assign-leads/update', [AssignLeadsController::class, 'assignTelecaller'])->name('assign-leads.update');
+Route::get('/get-telecallers-by-zone', [AssignLeadsController::class, 'getTelecallersByZone'])->name('get.telecallers.by.zone');
+Route::get('/telecaller-report', [TelecallerController::class, 'index'])->name('telecaller.report');

@@ -9,6 +9,8 @@ use App\Models\AccountType;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Models\User;
+
 
 class AccountController extends Controller
 {
@@ -23,10 +25,10 @@ class AccountController extends Controller
 
             return DataTables::of($data)
                 ->addIndexColumn()
-                ->addColumn('type_name', function($row) {
+                ->addColumn('type_name', function ($row) {
                     return $row->accountType->name ?? '-';
                 })
-                ->addColumn('location', function($row) {
+                ->addColumn('location', function ($row) {
                     $loc = [];
                     if ($row->district) $loc[] = $row->district->district_name;
                     if ($row->state) $loc[] = $row->state->name;

@@ -10,7 +10,7 @@ use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Zone;
 use App\Models\State;
-use App\Models\District; 
+use App\Models\District;
 use App\Models\City;
 use App\Models\Pincode;
 use App\Models\UserMapping;
@@ -26,13 +26,13 @@ class LeadController extends Controller
     //     return view('leads.index', compact('users'));
     // }
 
-public function index()
+    public function index()
     {
         $authUser = Auth::user();
-        
+
         // If user has a zone assigned, only show that zone in the dropdown
         $zones = Zone::orderBy('name')->where('action', '0')
-            ->when($authUser->zone_id, function($q) use ($authUser) {
+            ->when($authUser->zone_id, function ($q) use ($authUser) {
                 return $q->where('id', $authUser->zone_id);
             })->get();
 
@@ -53,7 +53,7 @@ public function index()
                     'bdos'   => User::role('BDO')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
                 ]);
             case 'state':
-                return District::where('state_id', $id)->orderBy('district_name')->get(['id', 'district_name as name']);
+                return District::where('state_id', (string) $id)->orderBy('district_name')->get(['id', 'district_name as name']);
             case 'district':
                 return City::where('district_id', $id)->orderBy('city_name')->get(['id', 'city_name as name']);
             case 'zsm':
@@ -73,7 +73,7 @@ public function index()
     {
         if ($request->ajax()) {
             $authUser = Auth::user();
-            
+
             $query = Lead::with('assignedUser')
                 ->leftJoin('users', 'leads.user_id', '=', 'users.id')
                 ->select('leads.*');
@@ -144,7 +144,7 @@ public function index()
                 ->addColumn('assigned_to', function ($row) {
                     return $row->assignedUser ? $row->assignedUser->name : 'Unassigned';
                 })
-                ->editColumn('lead_stage', function($row) {
+                ->editColumn('lead_stage', function ($row) {
                     $stages = [
                         0 => ['Site Identification', 'bg-gray-100 text-gray-600'],
                         1 => ['Intro', 'bg-blue-50 text-blue-600'],
@@ -156,9 +156,9 @@ public function index()
                         7 => ['Lost', 'bg-rose-50 text-rose-600']
                     ];
                     $stage = $stages[$row->lead_stage] ?? ['Unknown', 'bg-slate-100 text-slate-500'];
-                    return '<span class="inline-flex px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider '.$stage[1].'">'.$stage[0].'</span>';
+                    return '<span class="inline-flex px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ' . $stage[1] . '">' . $stage[0] . '</span>';
                 })
-                ->addColumn('priority', function($row) {
+                ->addColumn('priority', function ($row) {
                     if (in_array($row->lead_stage, [5, 6, 7])) return '';
                     $styles = [
                         1 => 'bg-red-100 text-red-600',
@@ -168,7 +168,7 @@ public function index()
                     $labels = [1 => 'High', 2 => 'Medium', 3 => 'Low'];
                     $style = $styles[$row->priority] ?? 'bg-slate-100 text-slate-500';
                     $label = $labels[$row->priority] ?? 'N/A';
-                    return '<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase '.$style.'">'.$label.'</span>';
+                    return '<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ' . $style . '">' . $label . '</span>';
                 })
                 ->addColumn('action', function ($row) {
                     return '<a href="' . route('leads.show', $row->id) . '" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all">
@@ -191,10 +191,10 @@ public function index()
     }
 
 
-      public function fieldActivity()
+    public function fieldActivity()
     {
         $authUser = Auth::user();
-        
+
         // Leads assigned to the current user
         $leads = Lead::where('user_id', $authUser->id)
             ->whereNotIn('lead_stage', [5, 6, 7]) // Not Won, Handed Over or Lost
@@ -207,9 +207,9 @@ public function index()
             ->get();
 
         // Any currently active visit (Checked-in but not yet Checked-out)
-        $activeVisit = \App\Models\LeadVisit::whereHas('lead', function($q) use ($authUser) {
-                $q->where('user_id', $authUser->id);
-            })
+        $activeVisit = \App\Models\LeadVisit::whereHas('lead', function ($q) use ($authUser) {
+            $q->where('user_id', $authUser->id);
+        })
             ->where('action', 'In-Progress')
             ->with('lead')
             ->first();

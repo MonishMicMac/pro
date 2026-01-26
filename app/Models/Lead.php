@@ -56,7 +56,7 @@ class Lead extends Model
         'lead_temperature',
         'fabricator_id',
         'google_review',
-        'total_quotation_amount'
+        'total_quotation_amount','total_value'
     ];
 
     protected $casts = [

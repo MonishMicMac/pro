@@ -21,6 +21,9 @@ use App\Http\Controllers\Api\S3Controller;
 
 use App\Http\Controllers\Api\InvoiceResponseController;
 
+Route::post('/upload-image', [S3Controller::class, 'upload']);
+Route::get('/files', [S3Controller::class, 'list']);
+
 Route::prefix('users')->group(function () {
     Route::post('send-otp', [LoginController::class, 'sendOtp']);
     Route::post('verify-otp', [LoginController::class, 'verifyOtp']);
@@ -40,6 +43,8 @@ Route::prefix('users')->group(function () {
 });
 
 Route::post('/digital-marketing-leads', [DigitalMarketingLeadController::class, 'store']);
+
+
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -156,8 +161,7 @@ Route::prefix('fabricator-projections')->group(function () {
 
 
 
-Route::post('/upload-image', [S3Controller::class, 'upload']);
-Route::get('/files', [S3Controller::class, 'list']);
+
 
 Route::post('/bdm-calls/store', [BdmCallController::class, 'store']);
 Route::get('/bdm-calls/list', [BdmCallController::class, 'list']); // Pass ?user_id=12

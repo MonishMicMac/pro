@@ -54,6 +54,7 @@ class DigitalMarketingLead extends Model
         'before_transfer_user',
         'transfter_remarks',
         'transftered_lead_using_brand',
+        'telecaller_id',
         'updated_by'
     ];
 
@@ -83,14 +84,14 @@ class DigitalMarketingLead extends Model
         return $this->belongsTo(Lead::class, 'lead_id');
     }
 
-    public function telecaller()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
 
     public function transferer(): BelongsTo
 {
     return $this->belongsTo(User::class, 'transfered_by');
+}
+public function telecaller()
+{
+    return $this->belongsTo(User::class, 'telecaller_id');
 }
 
 }

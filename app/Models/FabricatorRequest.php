@@ -16,7 +16,8 @@ class FabricatorRequest extends Model
         'status',
         'fabrication_pdf', // Added
         'rate_per_sqft',    // Added
-        'total_quotation_amount'
+        'total_quotation_amount',
+        'total_value'
     ];
 
     public function lead()

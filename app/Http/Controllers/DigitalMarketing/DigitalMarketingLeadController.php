@@ -9,6 +9,9 @@ use App\Models\DigitalMarketingLead;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Models\User;
 use App\Models\Zone;
+use App\Models\State;
+use App\Models\District;
+use App\Models\City;
 use App\Models\BuildingStatus;
 use App\Models\CustomerType;
 use App\Models\LeadHistory;
@@ -18,80 +21,146 @@ class DigitalMarketingLeadController extends Controller
 {
     use AuthorizesRequests;
 
-   public function index(Request $request)
-{
-    $this->authorize('leads.view');
+    public function index(Request $request)
+    {
+        $this->authorize('leads.view');
+        $authUser = Auth::user();
 
-    $buildingTypes = \App\Helpers\LeadHelper::getBuildingTypes();
-    $leadStages    = \App\Helpers\LeadHelper::getLeadStages();
-    // FIX: Force update stages to handle potential caching issues where 0 was RNR
-    $leadStages[0] = 'New Lead';
-    $leadStages[7] = 'RNR';
+        // --- 1. PREPARE DROPDOWNS (With Security Logic) ---
+        
+        // Zones: If user has zone_id, only show that. Else show all.
+        $zones = Zone::where('action', '0')->orderBy('name')
+            ->when($authUser->zone_id, fn($q) => $q->where('id', $authUser->zone_id))
+            ->get();
 
-    if ($request->ajax()) {
-        // UPDATED: Added 'transferer' to the with() array
-        $query = DigitalMarketingLead::with(['assignedUser', 'zoneDetails', 'status', 'type', 'lead', 'transferer']);
-
-        // Filter by Stage
-        if ($request->filled('stage')) {
-            $query->where('stage', $request->stage);
+        // States: If user has state_id, pre-load only that. 
+        // If user has zone_id but no state_id, pre-load states for that zone.
+        $states = collect();
+        if ($authUser->state_id) {
+            $states = State::where('id', $authUser->state_id)->get();
+        } elseif ($authUser->zone_id) {
+            $states = State::where('zone_id', $authUser->zone_id)->orderBy('name')->get();
         }
 
-        // Filter by Future Follow Up Date
-        if ($request->filled('future_date')) {
-            $query->whereDate('future_follow_up_date', $request->future_date);
+        // Districts: Similar logic
+        $districts = collect();
+        if ($authUser->district_id) {
+            $districts = District::where('id', $authUser->district_id)->get();
+        } elseif ($authUser->state_id) {
+            $districts = District::where('state_id', $authUser->state_id)->orderBy('district_name')->get();
         }
 
-        // Filter by Potential Follow Up Date
-        if ($request->filled('potential_date')) {
-            $query->whereDate('potential_follow_up_date', $request->potential_date);
+        // Cities: Similar logic
+        $cities = collect();
+        if ($authUser->city_id) {
+             $cities = City::where('id', $authUser->city_id)->get();
+        } elseif ($authUser->district_id) {
+             $cities = City::where('district_id', $authUser->district_id)->orderBy('city_name')->get();
         }
 
-        $data = $query->latest();
+        $buildingTypes = \App\Helpers\LeadHelper::getBuildingTypes();
+        $leadStages    = \App\Helpers\LeadHelper::getLeadStages();
+        $leadStages[0] = 'New Lead';
+        $leadStages[7] = 'RNR';
 
-        return DataTables::of($data)
-            ->addIndexColumn()
-            ->setRowId(function ($row) {
-                return $row->id; 
-            })
-            ->editColumn('date', function ($row) {
-                return $row->date ? \Carbon\Carbon::parse($row->date)->format('d-m-Y') : '-';
-            })
-            ->editColumn('future_follow_up_date', function ($row) {
-                if (!$row->future_follow_up_date) return '-';
-                $time = $row->future_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->future_follow_up_time)->format('h:i A') : '';
-                return \Carbon\Carbon::parse($row->future_follow_up_date)->format('d-m-Y') . $time;
-            })
-            ->editColumn('potential_follow_up_date', function ($row) {
-                if (!$row->potential_follow_up_date) return '-';
-                $time = $row->potential_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->potential_follow_up_time)->format('h:i A') : '';
-                return \Carbon\Carbon::parse($row->potential_follow_up_date)->format('d-m-Y') . $time;
-            })
-            ->editColumn('stage', function ($row) use ($leadStages) {
-                return $leadStages[$row->stage] ?? '-';
-            })
-            ->editColumn('building_type', function ($row) use ($buildingTypes) {
-                return $buildingTypes[$row->building_type] ?? '-';
-            })
-            // IMPORTANT: Ensure these raw columns are allowed to render HTML
-            ->rawColumns(['otp_status', 'name', 'lead_id']) 
-            ->make(true);
+        // --- 2. AJAX DATATABLE REQUEST ---
+        if ($request->ajax()) {
+            
+            // Start Query & Join with Users table to filter by Assigned User's Location
+            $query = DigitalMarketingLead::with(['assignedUser', 'zoneDetails', 'status', 'type', 'lead', 'transferer'])
+                ->leftJoin('users', 'digital_marketing_leads.assigned_to', '=', 'users.id')
+                ->select('digital_marketing_leads.*');
+
+            // --- A. APPLY SECURITY FILTERS (Based on Logged In User) ---
+            if ($authUser->zone_id) {
+                $query->where('users.zone_id', $authUser->zone_id);
+            }
+            if ($authUser->state_id) {
+                $query->where('users.state_id', $authUser->state_id);
+            }
+            if ($authUser->district_id) {
+                $query->where('users.district_id', $authUser->district_id);
+            }
+
+            // --- B. APPLY MANUAL FILTERS (Dropdowns) ---
+            // Only apply if the user isn't already restricted by their profile
+            if (!$authUser->zone_id && $request->filled('zone_id')) {
+                $query->where('users.zone_id', $request->zone_id);
+            }
+            if (!$authUser->state_id && $request->filled('state_id')) {
+                $query->where('users.state_id', $request->state_id);
+            }
+            if (!$authUser->district_id && $request->filled('district_id')) {
+                $query->where('users.district_id', $request->district_id);
+            }
+            if ($request->filled('city_id')) {
+                $query->where('users.city_id', $request->city_id);
+            }
+
+            // --- C. EXISTING FILTERS ---
+            if ($request->filled('stage')) {
+                $query->where('digital_marketing_leads.stage', $request->stage);
+            }
+            if ($request->filled('future_date')) {
+                $query->whereDate('digital_marketing_leads.future_follow_up_date', $request->future_date);
+            }
+            if ($request->filled('potential_date')) {
+                $query->whereDate('digital_marketing_leads.potential_follow_up_date', $request->potential_date);
+            }
+
+            $data = $query->latest('digital_marketing_leads.created_at');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->setRowId(fn ($row) => $row->id)
+                ->editColumn('date', fn ($row) => $row->date ? \Carbon\Carbon::parse($row->date)->format('d-m-Y') : '-')
+                ->editColumn('future_follow_up_date', function ($row) {
+                    if (!$row->future_follow_up_date) return '-';
+                    $time = $row->future_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->future_follow_up_time)->format('h:i A') : '';
+                    return \Carbon\Carbon::parse($row->future_follow_up_date)->format('d-m-Y') . $time;
+                })
+                ->editColumn('potential_follow_up_date', function ($row) {
+                    if (!$row->potential_follow_up_date) return '-';
+                    $time = $row->potential_follow_up_time ? ' ' . \Carbon\Carbon::parse($row->potential_follow_up_time)->format('h:i A') : '';
+                    return \Carbon\Carbon::parse($row->potential_follow_up_date)->format('d-m-Y') . $time;
+                })
+                ->editColumn('stage', fn ($row) => $leadStages[$row->stage] ?? '-')
+                ->editColumn('building_type', fn ($row) => $buildingTypes[$row->building_type] ?? '-')
+                ->rawColumns(['otp_status', 'name', 'lead_id']) 
+                ->make(true);
+        }
+
+        $users = User::orderBy('name')->get(); // You might want to filter this based on hierarchy too
+        $buildingStatuses = BuildingStatus::where('action', 0)->get();
+        $customerTypes = CustomerType::where('action', 0)->get();
+
+        return view('marketing.leads.index', compact(
+            'users', 'zones', 'states', 'districts', 'cities',
+            'buildingTypes', 'leadStages', 'buildingStatuses', 'customerTypes'
+        ));
     }
 
-    $users = User::all();
-    $zones = Zone::where('action', '0')->get();
-    $buildingStatuses = BuildingStatus::where('action', 0)->get();
-    $customerTypes = CustomerType::where('action', 0)->get();
+    /**
+     * AJAX: Get Cascading Location Data
+     */
+    public function getLocationData(Request $request)
+    {
+        $type = $request->type;
+        $id = $request->id;
 
-    return view('marketing.leads.index', compact(
-        'users',
-        'zones',
-        'buildingTypes',
-        'leadStages',
-        'buildingStatuses',
-        'customerTypes'
-    ));
-}
+        switch ($type) {
+            case 'zone':
+                return response()->json([
+                    'states' => State::where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                ]);
+            case 'state':
+                return District::where('state_id', (string) $id)->orderBy('district_name')->get(['id', 'district_name as name']);
+            case 'district':
+                return City::where('district_id', $id)->orderBy('city_name')->get(['id', 'city_name as name']);
+            default:
+                return response()->json([]);
+        }
+    }
 
     public function store(Request $request)
     {

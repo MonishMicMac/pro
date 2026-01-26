@@ -7,10 +7,14 @@ use App\Models\Fabricator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
+
 
 
 class LoginController extends Controller
 {
+
+
 
 
     public function login(Request $request)
@@ -27,28 +31,33 @@ class LoginController extends Controller
             ], 200);
         }
 
-        $fabricator = Fabricator::where('mobile', $request->mobile)
-            ->where('password', $request->password)
-            ->first();
+        // STEP 1: Find the user by mobile ONLY (do not check password yet)
+        $fabricator = Fabricator::where('mobile', $request->mobile)->first();
 
-        if (!$fabricator) {
+        // STEP 2: Check if user exists AND verify the password hash
+        // If fabricator is null OR the password check fails, show error
+        if (!$fabricator || !Hash::check($request->password, $fabricator->password)) {
             return response()->json([
                 'status' => false,
                 'message' => 'Invalid mobile number or password'
             ], 200);
         }
 
+        // STEP 3: Check status
         if ($fabricator->status != 1) {
             return response()->json([
                 'status' => false,
                 'message' => 'Account inactive'
             ], 200);
         }
+
+        // Login Success
         $token = $fabricator->createToken(
             'fabricator-token',
             ['*'],
             Carbon::now()->addDays(7)
         )->plainTextToken;
+
         return response()->json([
             'status' => true,
             'message' => 'Login successful',

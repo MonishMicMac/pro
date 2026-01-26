@@ -76,7 +76,7 @@ public function verifyOtp(Request $request)
     // 1. Verify user and OTP
     $user = User::with('roles')
                 ->where('phone', $request->phone)
-                ->where('otp', $request->otp) 
+                ->where('otp', $request->otp)
                 ->first();
 
     if (!$user) {
@@ -93,21 +93,24 @@ public function verifyOtp(Request $request)
     // 3. Create Token
     $token = $user->createToken('auth_token')->plainTextToken;
 
-    // 4. Prepare Response Data
+    // 4. Role Handling
+    $roleName = $user->roles->first()?->name;
+
+    // 5. Prepare Response Data
     $userData = $user->toArray();
     $userData['token'] = $token;
+    $userData['type']  = strtolower($roleName); // bdm / bdo
+    $userData['roles'] = $roleName;              // BDM / BDO
 
-    // Get the first role name (e.g., "BDM" or "BDO")
-    $roleName = $user->roles->first() ? $user->roles->first()->name : null;
-
-    // Set the specific keys as requested
-    $userData['type'] = strtolower($roleName); // "bdm"
-    $userData['roles'] = $roleName;            // "BDM"
+    // ✅ ADD BDM ID ONLY IF ROLE IS BDO
+    if ($roleName === 'BDO') {
+        $userData['bdm_id'] = $user->bdm_id; // from users table
+    }
 
     return response()->json([
         'status' => "true",
         'message' => 'Login successful',
-        'data' => $userData 
+        'data' => $userData
     ], 200);
 }
 }

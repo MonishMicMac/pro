@@ -56,7 +56,7 @@ class Fabricator extends Authenticatable
         'credit_limit',
         'credit_days',
 
-
+  'net',
         // CONTACT
         'contact_person',
         'sales_person_id',

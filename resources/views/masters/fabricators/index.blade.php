@@ -240,6 +240,9 @@
                                 Limit</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Credit
                                 Days</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Net
+                            </th>
+
 
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Mobile</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Zone</th>
@@ -577,6 +580,13 @@
                             class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
                     </div>
                     <div>
+                        <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                            Net
+                        </label>
+                        <input type="text" name="net" id="net"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold">
+                    </div>
+                    <div>
                         <label
                             class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">GST</label>
                         <input type="text" name="gst" id="fabricator_gst"
@@ -792,6 +802,9 @@ gap-4 text-xs font-bold text-slate-700">
 
                     {
                         data: 'credit_days'
+                    },
+                    {
+                        data: 'net'
                     },
                     {
                         data: 'mobile'
@@ -1201,6 +1214,7 @@ gap-4 text-xs font-bold text-slate-700">
                     $('input[name="payment_credit_terms"]').val(res.payment_credit_terms);
                     $('input[name="credit_limit"]').val(res.credit_limit);
                     $('input[name="credit_days"]').val(res.credit_days);
+                    $('input[name="net"]').val(res.net);
                     $('select[name="zone_id"]').val(res.zone_id);
                     $('select[name="zone_id"]').val(res.zone_id).trigger('change');
 

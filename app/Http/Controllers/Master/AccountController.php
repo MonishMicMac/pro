@@ -21,7 +21,48 @@ class AccountController extends Controller
         $this->authorize('accounts.view');
 
         if ($request->ajax()) {
-            $data = Account::with(['zone', 'state', 'district', 'accountType'])->where('action', '0')->latest();
+            $query = Account::with(['zone', 'state', 'district', 'accountType', 'user'])->where('action', '0');
+
+            // Apply ZSM restriction
+            if (auth()->user()->hasRole('ZSM')) {
+                // Find all users mapped under this ZSM
+                $mappings = \App\Models\UserMapping::where('zsm_id', auth()->id())->get();
+                
+                // Get relevant user IDs: The ZSM themselves, their BDMs, and their BDOs
+                $userIds = $mappings->pluck('bdo_id')
+                    ->merge($mappings->pluck('bdm_id'))
+                    ->push(auth()->id()) // Include the ZSM
+                    ->unique()
+                    ->filter() // Remove nulls
+                    ->values()
+                    ->toArray();
+
+                $query->whereIn('user_id', $userIds);
+            }
+
+            // Apply Filters
+            if ($request->zone_id) {
+                $query->where('zone_id', $request->zone_id);
+            }
+
+            if ($request->state_id) {
+                $query->where('state_id', $request->state_id);
+            }
+
+            if ($request->manager_id) {
+                // Accounts created by this manager OR their mapped BDOs
+               // Logic: Find all BDOs mapped to this manager in UserMapping
+                 $bdoIds = \App\Models\UserMapping::where('bdm_id', $request->manager_id)->pluck('bdo_id')->toArray();
+                 $relevantUserIds = array_merge([$request->manager_id], $bdoIds);
+                 $query->whereIn('user_id', $relevantUserIds);
+            }
+
+            if ($request->bdo_id) {
+                $query->where('user_id', $request->bdo_id);
+            }
+
+
+            $data = $query->latest();
 
             return DataTables::of($data)
                 ->addIndexColumn()
@@ -33,6 +74,9 @@ class AccountController extends Controller
                     if ($row->district) $loc[] = $row->district->district_name;
                     if ($row->state) $loc[] = $row->state->name;
                     return implode(', ', $loc) ?: '-';
+                })
+                ->addColumn('created_by', function ($row) {
+                    return $row->user ? $row->user->name : '-';
                 })
                 ->make(true);
         }
@@ -56,7 +100,7 @@ class AccountController extends Controller
             'account_type_id' => 'required',
         ]);
 
-        Account::create($request->all() + ['action' => '0']);
+        Account::create($request->all() + ['action' => '0', 'user_id' => auth()->id()]);
 
         return response()->json(['success' => 'Account added']);
     }

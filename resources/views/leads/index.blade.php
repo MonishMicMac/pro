@@ -134,7 +134,8 @@
             <table class="w-full" id="leads-table">
                 <thead>
                     <tr class="text-left">
-                        <th class="pl-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">ID</th>
+                        {{-- Changed ID to S.No --}}
+                        <th class="pl-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">S.No</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Lead Name</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Phone</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">City</th>
@@ -274,9 +275,6 @@
             });
         }
 
-        // Load ZSMs
-        // Removed as it is now integrated into getZoneData
-
         // --- 3. Event Listeners for Manual Changes ---
         $('#filter_zone_id').on('change', function() { 
             const zoneId = $(this).val();
@@ -345,7 +343,15 @@
                 $(row).find('td').addClass('py-3 px-4');
             },
             columns: [
-                { data: 'id', name: 'id' },
+                { 
+                    data: null, 
+                    name: 'id', 
+                    orderable: false, 
+                    searchable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                },
                 { data: 'name', name: 'name' },
                 { data: 'phone_number', name: 'phone_number' },
                 { data: 'city', name: 'city' },

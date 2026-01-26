@@ -68,7 +68,7 @@
                 <thead>
                     <tr class="text-left">
                         <th class="pl-4 pb-2 w-10"><input id="selectAll" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" type="checkbox"/></th>
-                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">ID</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">S.No</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Expense Type Name</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Status</th>
                     </tr>
@@ -171,6 +171,19 @@
                 $('#table-info').text(`Total Records: ${total}`);
                 $('#table-pagination').html($('.dataTables_paginate').html());
                 $('.dataTables_paginate').empty();
+
+                $('#table-pagination .paginate_button').on('click', function(e) {
+                    e.preventDefault();
+                    if ($(this).hasClass('disabled') || $(this).hasClass('current')) return;
+                    if ($(this).hasClass('previous')) {
+                        table.page('previous').draw('page');
+                    } else if ($(this).hasClass('next')) {
+                        table.page('next').draw('page');
+                    } else {
+                        const pageNum = parseInt($(this).text()) - 1;
+                        table.page(pageNum).draw('page');
+                    }
+                });
             }
         });
 

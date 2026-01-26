@@ -55,62 +55,65 @@ class LoginController extends Controller
         ]);
     }
 
-    /**
+/**
      * Step 2: Verify OTP and Login
-     * (No changes needed here as it verifies the OTP saved in Step 1)
      */
-public function verifyOtp(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'phone' => 'required|numeric|digits:10',
-        'otp'   => 'required|numeric',
-    ]);
+    public function verifyOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required|numeric|digits:10',
+            'otp'   => 'required|numeric',
+        ]);
 
-    if ($validator->fails()) {
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => "false", 
+                'message' => $validator->errors()->first()
+            ], 200);
+        }
+
+        // 1. Verify user and OTP
+        $user = User::with('roles')
+                    ->where('phone', $request->phone)
+                    ->where('otp', $request->otp)
+                    ->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => "false", 
+                'message' => 'Invalid OTP or Phone number.'
+            ], 200);
+        }
+
+        // 2. Clear OTP
+        $user->otp = null;
+        $user->save();
+
+        // 3. Create Token
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        // 4. Role Handling
+        $roleName = $user->roles->first()?->name;
+
+        // 5. Prepare Response Data
+        $userData = $user->toArray();
+        $userData['token'] = $token;
+        $userData['type']  = strtolower($roleName); // bdm / bdo
+        $userData['roles'] = $roleName;              // BDM / BDO
+
+        // ✅ FIXED: Fetch BDM ID from user_mappings table
+        if ($roleName === 'BDO') {
+            // Find the row where bdo_id equals the current user's id
+            $mapping = \App\Models\UserMapping::where('bdo_id', $user->id)->first();
+            
+            // If mapping exists, get the bdm_id, otherwise return null
+            $userData['bdm_id'] = $mapping ? $mapping->bdm_id : '';
+        }
+
         return response()->json([
-            'status' => "false", 
-            'message' => $validator->errors()->first()
+            'status' => "true",
+            'message' => 'Login successful',
+            'data' => $userData
         ], 200);
     }
-
-    // 1. Verify user and OTP
-    $user = User::with('roles')
-                ->where('phone', $request->phone)
-                ->where('otp', $request->otp)
-                ->first();
-
-    if (!$user) {
-        return response()->json([
-            'status' => "false", 
-            'message' => 'Invalid OTP or Phone number.'
-        ], 200);
-    }
-
-    // 2. Clear OTP
-    $user->otp = null;
-    $user->save();
-
-    // 3. Create Token
-    $token = $user->createToken('auth_token')->plainTextToken;
-
-    // 4. Role Handling
-    $roleName = $user->roles->first()?->name;
-
-    // 5. Prepare Response Data
-    $userData = $user->toArray();
-    $userData['token'] = $token;
-    $userData['type']  = strtolower($roleName); // bdm / bdo
-    $userData['roles'] = $roleName;              // BDM / BDO
-
-    // ✅ ADD BDM ID ONLY IF ROLE IS BDO
-    if ($roleName === 'BDO') {
-        $userData['bdm_id'] = $user->bdm_id; // from users table
-    }
-
-    return response()->json([
-        'status' => "true",
-        'message' => 'Login successful',
-        'data' => $userData
-    ], 200);
-}
 }

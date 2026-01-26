@@ -139,7 +139,7 @@ class LeadController extends Controller
 
             return DataTables::of($query)
                 ->editColumn('created_at', function ($row) {
-                    return $row->created_at ? $row->created_at->format('d-m-Y h:i A') : '-';
+                    return $row->created_at ? $row->created_at->format('d-m-Y') : '-';
                 })
                 ->addColumn('assigned_to', function ($row) {
                     return $row->assignedUser ? $row->assignedUser->name : 'Unassigned';

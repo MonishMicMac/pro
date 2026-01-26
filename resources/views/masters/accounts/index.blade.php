@@ -70,6 +70,50 @@
             @endcan
         </div>
 
+        <div class="glass-panel rounded-[1.5rem] p-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Zone</label>
+                    <select id="filter_zone_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                        <option value="">All Zones</option>
+                        @foreach($zones as $zone)
+                            <option value="{{ $zone->id }}">{{ $zone->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+    
+                <div>
+                    <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">State</label>
+                    <select id="filter_state_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                        <option value="">All States</option>
+                    </select>
+                </div>
+    
+                <div>
+                    <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Manager</label>
+                    <select id="filter_manager_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                        <option value="">All Managers</option>
+                    </select>
+                </div>
+    
+                <div>
+                    <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">BDO / User</label>
+                    <select id="filter_bdo_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                        <option value="">All Users</option>
+                    </select>
+                </div>
+    
+                <div class="flex items-end gap-2 lg:col-span-1">
+                    <button id="btn_filter" class="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">filter_list</span> Filter
+                    </button>
+                    <button id="btn_reset" class="px-3 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="glass-panel rounded-[1.5rem] overflow-hidden">
             <div class="p-4 bg-white/30 border-b border-white/50 flex justify-between items-center">
                 <div class="relative w-full max-w-xs">
@@ -93,6 +137,7 @@
                             <th class="px-4 pb-2">Mobile</th>
                             <th class="px-4 pb-2">Type</th>
                             <th class="px-4 pb-2">Location</th>
+                            <th class="px-4 pb-2">Created By</th>
                             <th class="px-4 pb-2 text-center">Status</th>
                         </tr>
                     </thead>
@@ -245,6 +290,61 @@
                 }
             });
 
+            // --- Filter Logic ---
+            function clearDropdown(id, placeholder) {
+                $(id).empty().append(`<option value="">All ${placeholder}</option>`);
+            }
+        
+            function getZoneData(zoneId) {
+                 if (!zoneId) {
+                    clearDropdown('#filter_state_id', 'States');
+                    clearDropdown('#filter_manager_id', 'Managers');
+                    clearDropdown('#filter_bdo_id', 'Users');
+                    return;
+                }
+                 $.get("{{ route('get.location.data') }}", { type: 'zone', id: zoneId }, function(data) {
+                    // Populate States
+                    clearDropdown('#filter_state_id', 'States');
+                    $.each(data.states, function(i, item) {
+                        $('#filter_state_id').append(`<option value="${item.id}">${item.name}</option>`);
+                    });
+                    
+                    // Populate BDMs (Managers)
+                    clearDropdown('#filter_manager_id', 'Managers');
+                    $.each(data.bdms, function(i, item) {
+                        $('#filter_manager_id').append(`<option value="${item.id}">${item.name}</option>`);
+                    });
+    
+                     // Populate BDOs
+                    clearDropdown('#filter_bdo_id', 'Users');
+                    $.each(data.bdos, function(i, item) {
+                        $('#filter_bdo_id').append(`<option value="${item.id}">${item.name}</option>`);
+                    });
+                });
+            }
+    
+            // Load BDOs for a Manager
+            function getBdos(bdmId) {
+                if (!bdmId) {
+                    clearDropdown('#filter_bdo_id', 'Users');
+                    return;
+                }
+                $.get("{{ route('get.location.data') }}", { type: 'bdo', id: bdmId }, function(data) {
+                    clearDropdown('#filter_bdo_id', 'Users');
+                    $.each(data, function(i, item) {
+                        $('#filter_bdo_id').append(`<option value="${item.id}">${item.name}</option>`);
+                    });
+                });
+            }
+    
+            $('#filter_zone_id').change(function() {
+                getZoneData($(this).val());
+            });
+    
+            $('#filter_manager_id').change(function() {
+                getBdos($(this).val());
+            });
+
             let editMode = false;
             const Toast = Swal.mixin({
                 toast: true,
@@ -256,7 +356,15 @@
             const table = $('#account-table').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('masters.accounts.index') }}",
+                ajax: {
+                    url: "{{ route('masters.accounts.index') }}",
+                    data: function(d) {
+                        d.zone_id = $('#filter_zone_id').val();
+                        d.state_id = $('#filter_state_id').val();
+                        d.manager_id = $('#filter_manager_id').val();
+                        d.bdo_id = $('#filter_bdo_id').val();
+                    }
+                },
                 createdRow: (row) => $(row).addClass('glass-card group'),
                 columns: [{
                         data: 'id',
@@ -286,6 +394,13 @@
                         data: 'location',
                         name: 'location',
                         defaultContent: '-'
+                    },
+                    {
+                        data: 'created_by',
+                        name: 'user.name',
+                        defaultContent: '-',
+                        orderable: false,
+                        searchable: false
                     },
                     {
                         data: 'action',
@@ -333,6 +448,16 @@
                     });
                 }
 
+            });
+
+            $('#btn_filter').click(function() {
+                table.draw();
+            });
+    
+            $('#btn_reset').click(function() {
+               $('#filter_zone_id').val('').trigger('change');
+               $('#customSearch').val('');
+               table.search('').draw();
             });
 
             function updateFloatingBar() {

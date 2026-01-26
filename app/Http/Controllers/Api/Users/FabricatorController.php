@@ -66,7 +66,7 @@ class FabricatorController extends Controller
 
             'latitude'       => $request->latitude,
             'longitude'      => $request->longitude,
-            
+
 
             'shop_image' => $imagePath,
             // DEFAULTS
@@ -91,7 +91,7 @@ class FabricatorController extends Controller
         ], 200);
     }
 
-/**
+    /**
      * Get list of fabricators based on Zone ID
      */
     public function getFabricatorList(Request $request)
@@ -113,14 +113,14 @@ class FabricatorController extends Controller
         // If not, and you want ALL fabricators regardless of user but filtered by zone logic:
         $fabricators = Fabricator::where('zone_id', $request->zone_id) // Ensure this column exists in fabricators table
             ->select(
-                'id', 
-                'shop_name', 
-                'contact_person', 
-                'mobile', 
-                'address', 
-                'latitude', 
-                'longitude', 
-                'shop_image', 
+                'id',
+                'shop_name',
+                'contact_person',
+                'mobile',
+                'address',
+                'latitude',
+                'longitude',
+                'shop_image',
                 'is_existing'
             )
             ->orderBy('created_at', 'desc')
@@ -137,9 +137,9 @@ class FabricatorController extends Controller
                 'latitude'       => $item->latitude,
                 'longitude'      => $item->longitude,
                 'is_existing'    => $item->is_existing,
-                'shop_image_url' => $item->shop_image 
-                                    ? url('storage/' . $item->shop_image) 
-                                    : null,
+                'shop_image_url' => $item->shop_image
+                    ? url('storage/' . $item->shop_image)
+                    : null,
             ];
         });
 
@@ -158,7 +158,7 @@ class FabricatorController extends Controller
     {
         // 1. Validate Inputs
         $validator = Validator::make($request->all(), [
-            'user_id'       => 'required|exists:users,id',
+            // 'user_id'       => 'required|exists:users,id',
             'fabricator_id' => 'required|exists:fabricators,id'
         ]);
 
@@ -172,7 +172,7 @@ class FabricatorController extends Controller
         // 2. Fetch specific fabricator
         // We add 'created_by' check to ensure the user is allowed to view this fabricator
         $fabricator = Fabricator::where('id', $request->fabricator_id)
-            ->where('created_by', $request->user_id)
+            // ->where('created_by', $request->user_id)
             ->first();
 
         if (!$fabricator) {
@@ -183,8 +183,8 @@ class FabricatorController extends Controller
         }
 
         // 3. Add Image URL
-        $fabricator->shop_image_url = $fabricator->shop_image 
-            ? url('storage/' . $fabricator->shop_image) 
+        $fabricator->shop_image_url = $fabricator->shop_image
+            ? url('storage/' . $fabricator->shop_image)
             : null;
 
         return response()->json([
@@ -219,5 +219,41 @@ class FabricatorController extends Controller
 
             ]
         ]);
+    }
+    public function fabricatorProfile(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'fabricator_id' => 'required|exists:fabricators,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        $fabricator = Fabricator::where('id', $request->fabricator_id)
+            ->where('action', '0')
+            ->first();
+
+        if (!$fabricator) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Fabricator not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'id'             => $fabricator->id,
+                'cust_id'       => $fabricator->cust_id,
+                'shop_name'      => $fabricator->shop_name,
+                'contact_person' => $fabricator->contact_person,
+                'mobile'         => $fabricator->mobile,
+                'address'        => $fabricator->address,
+            ]
+        ], 200);
     }
 }

@@ -61,7 +61,7 @@
                 <thead>
                     <tr class="text-left">
                         <th class="pl-4 pb-2 w-10"><input id="selectAll" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" type="checkbox"/></th>
-                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">ID</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">S.No</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Vehicle Type</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-end">Amount</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Status</th>
@@ -152,7 +152,7 @@
             },
             columns: [
                 { data: 'id', orderable: false, render: (d) => `<input class="row-checkbox w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" type="checkbox" value="${d}"/>` },
-                { data: 'id', name: 'id' },
+                { data: 'DT_RowIndex', name: 'DT_RowIndex' },
                 { data: 'vehicle_type', name: 'vehicle_type' },
                 { data: 'amount', name: 'amount', className: 'text-end' },
                 { 

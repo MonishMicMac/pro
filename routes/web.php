@@ -163,6 +163,8 @@ Route::middleware(['auth'])->group(function () {
     // Marketing
     Route::group(['prefix' => 'marketing', 'as' => 'marketing.'], function () {
         Route::post('leads/bulk-delete', [DigitalMarketingLeadController::class, 'bulkDelete'])->name('leads.bulkDelete');
+        Route::get('leads/get-location-data', [DigitalMarketingLeadController::class, 'getLocationData'])->name('leads.get-locations');
+
         Route::resource('leads', DigitalMarketingLeadController::class);
 
         Route::get('regional-footprint', [App\Http\Controllers\Marketing\RegionalFootprintController::class, 'index'])->name('regional.footprint');
@@ -178,6 +180,7 @@ Route::middleware(['auth'])->group(function () {
     // Leads & Visits
     Route::get('site-visits', [App\Http\Controllers\SiteVisitController::class, 'index'])->name('site-visits.index');
     Route::get('site-visits/data', [App\Http\Controllers\SiteVisitController::class, 'data'])->name('site-visits.data');
+    Route::get('site-visits/get-locations', [App\Http\Controllers\SiteVisitController::class, 'getLocationData'])->name('site-visits.get-locations');
     Route::get('site-visit-report', [App\Http\Controllers\SiteVisitController::class, 'report'])->name('site-visits.report');
     Route::get('site-visit-report/data', [App\Http\Controllers\SiteVisitController::class, 'reportData'])->name('site-visits.report.data');
 
@@ -275,6 +278,7 @@ Route::get('bdo-performance-report/data', [App\Http\Controllers\BdoPerformanceRe
 
 Route::get('prospect-report', [App\Http\Controllers\ProspectController::class, 'index'])
     ->name('prospect.report');
+    Route::get('get-location-data', [App\Http\Controllers\ProspectController::class, 'getLocationData'])->name('get.location.data');
 
 Route::get('prospect-report/data', [App\Http\Controllers\ProspectController::class, 'data'])
     ->name('prospect.report.data');

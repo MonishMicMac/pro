@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\FabricatorStockManagementController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\S3Controller;
 use App\Http\Controllers\Api\Users\BdoDropDownController;
+use App\Http\Controllers\Api\FabricatorAccountingApiController;
 
 
 use App\Http\Controllers\Api\InvoiceResponseController;
@@ -27,6 +28,13 @@ Route::post('/upload-image', [S3Controller::class, 'upload']);
 Route::get('/files', [S3Controller::class, 'list']);
 Route::apiResource('invoice-responses', InvoiceResponseController::class);
 Route::post('/storePayment', [InvoiceResponseController::class, 'storePayment']);
+
+ Route::prefix('fabricator-accounting')->group(function () {
+    Route::post('/current-outstanding', [FabricatorAccountingApiController::class, 'currentOutstanding']);
+    Route::post('/payment-details', [FabricatorAccountingApiController::class, 'paymentDetails']);
+    Route::post('/collection-details', [FabricatorAccountingApiController::class, 'collectionDetails']);
+});
+
 
 Route::prefix('users')->group(function () {
     Route::post('send-otp', [LoginController::class, 'sendOtp']);
@@ -199,4 +207,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('products', [ProductController::class, 'getProducts']);
 
     Route::get('/bdo-dropdowns', [BdoDropDownController::class, 'index']);
+
+
+   
 });

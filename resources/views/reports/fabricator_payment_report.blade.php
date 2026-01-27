@@ -107,6 +107,7 @@
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Fabricator</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Mode</th>
                             <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Ref No</th>
+                            <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Inv No</th>
                             <th class="pr-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Amount</th>
                         </tr>
                     </thead>
@@ -151,6 +152,13 @@
                     }
                 },
                 { data: 'ref_no', name: 'ref_no' },
+                { 
+                    data: 'invoice_no', 
+                    name: 'invoice_no',
+                    render: function(data) {
+                        return data ? `<span class="text-slate-500 font-bold">${data}</span>` : `<span class="text-slate-300">-</span>`;
+                    }
+                },
                 { data: 'amount', name: 'amount', className: 'text-right text-emerald-600' },
             ],
             order: [[0, 'desc']],

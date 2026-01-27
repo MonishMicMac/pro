@@ -18,6 +18,8 @@ use App\Http\Controllers\BdmCallReportController;
 use App\Http\Controllers\AssignLeadsController;
 use App\Http\Controllers\TelecallerController;
 use App\Http\Controllers\BdoTargetController;
+use App\Http\Controllers\FabricatorAccountingReportController;
+
 
 // Public Routes
 Route::get('login', [LoginController::class, 'index'])->name('login');
@@ -262,6 +264,24 @@ Route::get('bdm-visit-report', [App\Http\Controllers\LeadVisitBdmController::cla
 Route::get('bdm-visit-report/data', [App\Http\Controllers\LeadVisitBdmController::class, 'reportData'])->name('bdm.visit-report.data');
 Route::get('bdm-visit-report/get-locations', [App\Http\Controllers\LeadVisitBdmController::class, 'getLocations'])
     ->name('bdm.get-locations');
+
+    Route::prefix('fabricator-accounting-reports')->group(function() {
+    // Invoices
+    Route::get('invoices', [App\Http\Controllers\FabricatorAccountingReportController::class, 'invoiceIndex'])->name('fabricator.report.invoices');
+    Route::get('invoices/data', [App\Http\Controllers\FabricatorAccountingReportController::class, 'getInvoicesData'])->name('fabricator.report.invoices.data');
+    
+    // Payments
+    Route::get('payments', [App\Http\Controllers\FabricatorAccountingReportController::class, 'paymentIndex'])->name('fabricator.report.payments');
+    Route::get('payments/data', [App\Http\Controllers\FabricatorAccountingReportController::class, 'getPaymentsData'])->name('fabricator.report.payments.data');
+    
+    // Collections
+    Route::get('collections', [App\Http\Controllers\FabricatorAccountingReportController::class, 'collectionIndex'])->name('fabricator.report.collections');
+    Route::get('collections/data', [App\Http\Controllers\FabricatorAccountingReportController::class, 'getCollectionsData'])->name('fabricator.report.collections.data');
+
+    // Hierarchy Utility
+    Route::get('location-data', [App\Http\Controllers\FabricatorAccountingReportController::class, 'getHierarchicalData'])->name('fabricator.report.accounting.location-data');
+});
+
 
 Route::get('fabricator-report', [App\Http\Controllers\FabricatorReportController::class, 'index'])->name('fabricator.report');
 Route::get('fabricator-report/summary', [App\Http\Controllers\FabricatorReportController::class, 'summaryData'])->name('fabricator.report.summary');

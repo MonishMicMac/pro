@@ -156,80 +156,71 @@ class InvoiceResponseController extends Controller
        STORE PAYMENT
     ==========================*/
     public function storePayment(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'cust_id' => 'required|exists:fabricators,cust_id',
-            'amount' => 'required|numeric|min:1',
-            'payment_mode' => 'required|string',
-            'payment_date' => 'required|date',
-            'ref_no' => 'nullable|string',
-            'invoice_no' => 'nullable|string'
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'cust_id' => 'required|exists:fabricators,cust_id',
+        'invoice_no' => 'required|string',
+        'amount' => 'required|numeric|min:1',
+        'payment_mode' => 'required|string',
+        'payment_date' => 'required|date',
+        'ref_no' => 'nullable|string'
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status'=>false,'message'=>$validator->errors()->first()],422);
-        }
+    if ($validator->fails()) {
+        return response()->json(['status'=>false,'message'=>$validator->errors()->first()],422);
+    }
 
-        DB::beginTransaction();
+    DB::beginTransaction();
 
-        try {
+    try {
 
-            /* 1. Save payment */
-            FabricatorPayment::create($request->only([
-                'cust_id','payment_mode','ref_no','amount','payment_date'
-            ]));
+        // 1. Store payment
+        FabricatorPayment::create($request->only([
+            'cust_id','invoice_no','payment_mode','ref_no','amount','payment_date'
+        ]));
 
-            /* 2. Ledger credit */
-            FabricatorInvoice::create([
-                'cust_id' => $request->cust_id,
-                'invoice_type' => 'CREDI NOTE',
-                'invoice_no' => $request->ref_no,
-                'invoice_date' => $request->payment_date,
-                'amount' => $request->amount,
-                'qty' => 1,
-                'debit' => 0,
-                'credit' => $request->amount
-            ]);
+        // 2. Recalculate outstanding
+        $invoiceBalance = FabricatorInvoice::where('cust_id',$request->cust_id)
+            ->selectRaw('SUM(debit) - SUM(credit) as bal')
+            ->value('bal') ?? 0;
 
-            /* 3. Outstanding */
-            $outstanding = FabricatorInvoice::where('cust_id',$request->cust_id)
-                ->selectRaw('SUM(debit) - SUM(credit) as balance')
-                ->value('balance') ?? 0;
+        $payments = FabricatorPayment::where('cust_id',$request->cust_id)->sum('amount');
 
-            /* 4. Update fabricator */
-            $fabricator = Fabricator::where('cust_id',$request->cust_id)->firstOrFail();
-            $fabricator->current_outstanding = $outstanding;
-            $fabricator->save();
+        $outstanding = $invoiceBalance - $payments;
 
-            /* 5. Update invoice collection if invoice_no passed */
-            if ($request->invoice_no) {
-                $collection = InvoiceCollection::where('invoice_no',$request->invoice_no)->first();
-                if ($collection) {
-                    $collection->collected_amount += $request->amount;
-                    $collection->due_amount = $collection->invoice_amount - $collection->collected_amount;
-                    $collection->collected_date = $request->payment_date;
+        // 3. Update fabricator
+        $fabricator = Fabricator::where('cust_id',$request->cust_id)->firstOrFail();
+        $fabricator->current_outstanding = $outstanding;
+        $fabricator->save();
 
-                    if ($collection->collected_date > $collection->due_date) {
-                        $collection->overdue_days =
-                            Carbon::parse($collection->due_date)
-                            ->diffInDays(Carbon::parse($collection->collected_date));
-                    }
+        // 4. Update invoice collection
+        $collection = InvoiceCollection::where('invoice_no',$request->invoice_no)->first();
+        if ($collection) {
+            $collection->collected_amount += $request->amount;
+            $collection->due_amount = $collection->invoice_amount - $collection->collected_amount;
+            $collection->collected_date = $request->payment_date;
 
-                    $collection->save();
-                }
+            if ($collection->collected_date > $collection->due_date) {
+                $collection->overdue_days =
+                    \Carbon\Carbon::parse($collection->due_date)
+                    ->diffInDays(\Carbon\Carbon::parse($collection->collected_date));
             }
 
-            DB::commit();
-
-            return response()->json([
-                'status'=>true,
-                'message'=>'Payment recorded',
-                'outstanding'=>$outstanding
-            ]);
-
-        } catch(\Exception $e){
-            DB::rollBack();
-            return response()->json(['status'=>false,'error'=>$e->getMessage()],500);
+            $collection->save();
         }
+
+        DB::commit();
+
+        return response()->json([
+            'status'=>true,
+            'message'=>'Payment recorded',
+            'outstanding'=>$outstanding
+        ]);
+
+    } catch(\Exception $e){
+        DB::rollBack();
+        return response()->json(['status'=>false,'error'=>$e->getMessage()],500);
     }
+}
+
 }

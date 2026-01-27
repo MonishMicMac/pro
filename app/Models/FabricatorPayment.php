@@ -10,6 +10,7 @@ class FabricatorPayment extends Model
         'cust_id',
         'payment_mode',
         'ref_no',
+        'invoice_no',
         'amount',
         'payment_date'
     ];

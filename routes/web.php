@@ -139,8 +139,6 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('{id}', [App\Http\Controllers\Master\UserMappingController::class, 'destroy'])->name('destroy');
             Route::get('tree-data', [App\Http\Controllers\Master\UserMappingController::class, 'getTreeData'])->name('treeData');
             Route::get('get-mapped-users', [App\Http\Controllers\Master\UserMappingController::class, 'getMappedUsers'])->name('getMappedUsers');
-
-
         });
     });
 
@@ -237,6 +235,21 @@ Route::prefix('fabricator')
             'upload',
             [FabricatorDashboardController::class, 'uploadFabricationDetails']
         )->name('fabricator.upload.pdf');
+
+        Route::get('stock-report', [App\Http\Controllers\FabricatorStockReportController::class, 'index'])
+            ->name('fabricator.stock.report');
+
+        Route::get('stock-report/data', [App\Http\Controllers\FabricatorStockReportController::class, 'data'])
+            ->name('fabricator.stock.report.data');
+
+        Route::get('stock-report/categories', [App\Http\Controllers\FabricatorStockReportController::class, 'getCategories'])
+            ->name('fabricator.stock.report.categories');
+
+        Route::get('stock-report/sub-categories', [App\Http\Controllers\FabricatorStockReportController::class, 'getSubCategories'])
+            ->name('fabricator.stock.report.sub-categories');
+
+        Route::get('stock-report/products', [App\Http\Controllers\FabricatorStockReportController::class, 'getProducts'])
+            ->name('fabricator.stock.report.products');
     });
 
 
@@ -249,7 +262,7 @@ Route::get('bdm-visit-report', [App\Http\Controllers\LeadVisitBdmController::cla
 Route::get('bdm-visit-report/data', [App\Http\Controllers\LeadVisitBdmController::class, 'reportData'])->name('bdm.visit-report.data');
 Route::get('bdm-visit-report/get-locations', [App\Http\Controllers\LeadVisitBdmController::class, 'getLocations'])
     ->name('bdm.get-locations');
-    
+
 Route::get('fabricator-report', [App\Http\Controllers\FabricatorReportController::class, 'index'])->name('fabricator.report');
 Route::get('fabricator-report/summary', [App\Http\Controllers\FabricatorReportController::class, 'summaryData'])->name('fabricator.report.summary');
 Route::get('fabricator-report/location-data', [App\Http\Controllers\FabricatorReportController::class, 'getHierarchicalData'])->name('fabricator.report.location-data');
@@ -393,7 +406,7 @@ Route::prefix('bdo-joint-visit-report')->name('bdo-joint-visits.')->group(functi
 });
 
 Route::prefix('bdm-call-reports')->name('bdm-call-reports.')->group(function () {
-    
+
     Route::get('/', [BdmCallReportController::class, 'index'])
         ->name('index');
 

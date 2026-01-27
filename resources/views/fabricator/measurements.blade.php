@@ -150,9 +150,38 @@
                 </div>
             @else
                 {{-- ================= FINAL LOCKED ================= --}}
-                <div class="bg-slate-100 border rounded-xl p-4 text-sm text-slate-600 text-center">
-                    Final quotation already submitted. No further changes allowed.
-                </div>
+                @if ($hasFinal)
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-4">
+                        <h4 class="text-sm font-semibold text-blue-800 uppercase">
+                            Final Quotation
+                        </h4>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs text-slate-600">Final Rate per Sqft (₹)</label>
+                                <input type="number" value="{{ $lead->final_rate_per_sqft }}" readonly
+                                    class="w-full rounded-xl border-slate-300 bg-slate-100">
+                            </div>
+
+                            <div>
+                                <label class="text-xs text-slate-600">Final Total Amount (₹)</label>
+                                <input type="number" value="{{ $lead->total_value }}" readonly
+                                    class="w-full rounded-xl border-slate-300 bg-slate-100">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center bg-white border rounded-lg p-4">
+                            <div>
+                                <p class="text-sm font-medium text-blue-700">Final Quotation PDF</p>
+                                <p class="text-xs text-blue-600">Submitted to lead</p>
+                            </div>
+                            <a href="{{ asset('storage/' . $lead->final_quotation_pdf) }}" target="_blank"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
+                                View PDF
+                            </a>
+                        </div>
+                    </div>
+                @endif
             @endif
 
             <div id="uploadMsg" class="text-sm"></div>

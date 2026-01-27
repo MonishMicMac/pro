@@ -4,166 +4,232 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\InvoiceResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+
+use App\Models\InvoiceResponse;
 use App\Models\FabricatorInvoice;
+use App\Models\Fabricator;
+use App\Models\FabricatorPayment;
+use App\Models\InvoiceCollection;
+
 class InvoiceResponseController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     * Optionally filter by invoice_no if provided in query params.
-     */
+    /* =========================
+       LIST RAW LOGS
+    ==========================*/
     public function index(Request $request)
     {
         $query = InvoiceResponse::query();
 
-        // Allow filtering by invoice_no (e.g., /api/invoice-responses?invoice_no=INV-1001)
         if ($request->has('invoice_no')) {
             $query->where('invoice_no', $request->invoice_no);
         }
 
-        $responses = $query->latest()->paginate(10);
-
         return response()->json([
             'status' => true,
-            'data'   => $responses
+            'data' => $query->latest()->paginate(10)
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-public function store(Request $request)
+    /* =========================
+       STORE INVOICE / NOTES
+    ==========================*/
+    public function store(Request $request)
     {
-        // 1. Validate the Request
         $validator = Validator::make($request->all(), [
-            'fabricator_id'       => 'required|integer',
-            'invoice_type'        => 'required|string|max:50',
-            'invoice_no'          => 'required|string|max:100', // Ensure unique if necessary
-            'invoice_date'        => 'required|date',
-            'amount'              => 'required|numeric',
-            'category'            => 'nullable|string',
-            'qty'                 => 'required|integer',
-            'original_invoice_no' => 'nullable|string',
+            'cust_id' => 'required|exists:fabricators,cust_id',
+            'invoice_type' => 'required|in:INVOICE,DEBIT NOTE,CREDI NOTE,CANCEL',
+            'invoice_no' => 'required|string',
+            'invoice_date' => 'required|date',
+            'amount' => 'required|numeric|min:1',
+            'qty' => 'required|integer|min:1',
+            'original_invoice_no' => 'nullable|string'
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => $validator->errors()->first(),
-                'errors'  => $validator->errors()
-            ], 422);
+            return response()->json(['status'=>false,'message'=>$validator->errors()->first()],422);
         }
 
-        // 2. Use a Transaction to ensure both tables are updated together
+        DB::beginTransaction();
+
         try {
-            DB::beginTransaction();
 
-            // A. Store Main Details in 'fabricator_invoices'
-            // We use updateOrCreate to avoid duplicates if the same invoice is sent twice
-            $invoice = FabricatorInvoice::updateOrCreate(
-                ['invoice_no' => $request->invoice_no], // Search criteria
-                [
-                    'fabricator_id'       => $request->fabricator_id,
-                    'invoice_type'        => $request->invoice_type,
-                    'invoice_date'        => $request->invoice_date,
-                    'amount'              => $request->amount,
-                    'category'            => $request->category,
-                    'qty'                 => $request->qty,
-                    'original_invoice_no' => $request->original_invoice_no,
-                ]
-            );
+            /* 1. Decide debit / credit */
+            $debit = 0;
+            $credit = 0;
 
-            // B. Store the Raw Request Log in 'invoice_responses'
-            $log = InvoiceResponse::create([
+            if (in_array($request->invoice_type, ['INVOICE','DEBIT NOTE'])) {
+                $debit = $request->amount;
+            }
+
+            if (in_array($request->invoice_type, ['CANCEL','CREDI NOTE'])) {
+                $credit = $request->amount;
+            }
+
+            /* 2. Save ledger row */
+            FabricatorInvoice::create([
+                'cust_id' => $request->cust_id,
+                'invoice_type' => $request->invoice_type,
                 'invoice_no' => $request->invoice_no,
-                'request'    => $request->all(), // Save the full JSON payload
+                'invoice_date' => $request->invoice_date,
+                'amount' => $request->amount,
+                'qty' => $request->qty,
+                'original_invoice_no' => $request->original_invoice_no,
+                'debit' => $debit,
+                'credit' => $credit
+            ]);
+
+            /* 3. Outstanding */
+            $outstanding = FabricatorInvoice::where('cust_id',$request->cust_id)
+                ->selectRaw('SUM(debit) - SUM(credit) as balance')
+                ->value('balance') ?? 0;
+
+            /* 4. Update fabricator */
+            $fabricator = Fabricator::where('cust_id',$request->cust_id)->firstOrFail();
+            $fabricator->current_outstanding = $outstanding;
+            $fabricator->save();
+
+            /* 5. Risk flags */
+            $risk = [
+                'limit_crossed' => $outstanding > $fabricator->credit_limit,
+                'overdue' => false
+            ];
+
+            $lastInvoice = FabricatorInvoice::where('cust_id',$request->cust_id)
+                ->where('invoice_type','INVOICE')
+                ->latest('invoice_date')
+                ->first();
+
+            if ($lastInvoice) {
+                $due = Carbon::parse($lastInvoice->invoice_date)
+                    ->addDays($fabricator->credit_days);
+                if (now()->gt($due)) {
+                    $risk['overdue'] = true;
+                }
+            }
+
+            /* 6. INVOICE COLLECTION TRACK */
+            if ($request->invoice_type === 'INVOICE') {
+
+                $dueDate = Carbon::parse($request->invoice_date)
+                    ->addDays($fabricator->credit_days);
+
+                InvoiceCollection::updateOrCreate(
+                    ['invoice_no' => $request->invoice_no],
+                    [
+                        'cust_id' => $request->cust_id,
+                        'invoice_no' => $request->invoice_no,
+                        'invoice_date' => $request->invoice_date,
+                        'invoice_amount' => $request->amount,
+                        'due_date' => $dueDate,
+                        'collected_amount' => 0,
+                        'due_amount' => $request->amount,
+                        'overdue_days' => 0
+                    ]
+                );
+            }
+
+            /* 7. Save raw payload */
+            InvoiceResponse::create([
+                'invoice_no' => $request->invoice_no,
+                'request' => $request->all()
             ]);
 
             DB::commit();
 
             return response()->json([
-                'status'  => true,
-                'message' => 'Invoice stored and logged successfully',
-                'data'    => [
-                    'invoice' => $invoice,
-                    'log_id'  => $log->id
-                ]
-            ], 201);
+                'status' => true,
+                'message' => 'Invoice processed',
+                'outstanding' => $outstanding,
+                'risk' => $risk
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'status'  => false,
-                'message' => 'Failed to process invoice',
-                'error'   => $e->getMessage()
-            ], 500);
+            return response()->json(['status'=>false,'error'=>$e->getMessage()],500);
         }
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show($id)
+    /* =========================
+       STORE PAYMENT
+    ==========================*/
+    public function storePayment(Request $request)
     {
-        $invoiceResponse = InvoiceResponse::find($id);
-
-        if (!$invoiceResponse) {
-            return response()->json(['status' => false, 'message' => 'Record not found'], 404);
-        }
-
-        return response()->json([
-            'status' => true,
-            'data'   => $invoiceResponse
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id)
-    {
-        $invoiceResponse = InvoiceResponse::find($id);
-
-        if (!$invoiceResponse) {
-            return response()->json(['status' => false, 'message' => 'Record not found'], 404);
-        }
-
         $validator = Validator::make($request->all(), [
-            'invoice_no' => 'sometimes|string|exists:fabricator_invoices,invoice_no',
-            'request'    => 'sometimes|array',
+            'cust_id' => 'required|exists:fabricators,cust_id',
+            'amount' => 'required|numeric|min:1',
+            'payment_mode' => 'required|string',
+            'payment_date' => 'required|date',
+            'ref_no' => 'nullable|string',
+            'invoice_no' => 'nullable|string'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
+            return response()->json(['status'=>false,'message'=>$validator->errors()->first()],422);
         }
 
-        $invoiceResponse->update($request->all());
+        DB::beginTransaction();
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Invoice Response updated successfully',
-            'data'    => $invoiceResponse
-        ]);
-    }
+        try {
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy($id)
-    {
-        $invoiceResponse = InvoiceResponse::find($id);
+            /* 1. Save payment */
+            FabricatorPayment::create($request->only([
+                'cust_id','payment_mode','ref_no','amount','payment_date'
+            ]));
 
-        if (!$invoiceResponse) {
-            return response()->json(['status' => false, 'message' => 'Record not found'], 404);
+            /* 2. Ledger credit */
+            FabricatorInvoice::create([
+                'cust_id' => $request->cust_id,
+                'invoice_type' => 'CREDI NOTE',
+                'invoice_no' => $request->ref_no,
+                'invoice_date' => $request->payment_date,
+                'amount' => $request->amount,
+                'qty' => 1,
+                'debit' => 0,
+                'credit' => $request->amount
+            ]);
+
+            /* 3. Outstanding */
+            $outstanding = FabricatorInvoice::where('cust_id',$request->cust_id)
+                ->selectRaw('SUM(debit) - SUM(credit) as balance')
+                ->value('balance') ?? 0;
+
+            /* 4. Update fabricator */
+            $fabricator = Fabricator::where('cust_id',$request->cust_id)->firstOrFail();
+            $fabricator->current_outstanding = $outstanding;
+            $fabricator->save();
+
+            /* 5. Update invoice collection if invoice_no passed */
+            if ($request->invoice_no) {
+                $collection = InvoiceCollection::where('invoice_no',$request->invoice_no)->first();
+                if ($collection) {
+                    $collection->collected_amount += $request->amount;
+                    $collection->due_amount = $collection->invoice_amount - $collection->collected_amount;
+                    $collection->collected_date = $request->payment_date;
+
+                    if ($collection->collected_date > $collection->due_date) {
+                        $collection->overdue_days =
+                            Carbon::parse($collection->due_date)
+                            ->diffInDays(Carbon::parse($collection->collected_date));
+                    }
+
+                    $collection->save();
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'=>true,
+                'message'=>'Payment recorded',
+                'outstanding'=>$outstanding
+            ]);
+
+        } catch(\Exception $e){
+            DB::rollBack();
+            return response()->json(['status'=>false,'error'=>$e->getMessage()],500);
         }
-
-        $invoiceResponse->delete();
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Record deleted successfully'
-        ]);
     }
 }

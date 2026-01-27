@@ -25,6 +25,8 @@ use App\Http\Controllers\Api\InvoiceResponseController;
 
 Route::post('/upload-image', [S3Controller::class, 'upload']);
 Route::get('/files', [S3Controller::class, 'list']);
+Route::apiResource('invoice-responses', InvoiceResponseController::class);
+Route::post('/storePayment', [InvoiceResponseController::class, 'storePayment']);
 
 Route::prefix('users')->group(function () {
     Route::post('send-otp', [LoginController::class, 'sendOtp']);
@@ -191,8 +193,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/zones/list', [LocationController::class, 'getZoneList']);
 
 
-    Route::apiResource('invoice-responses', InvoiceResponseController::class);
-
+    
     Route::get('categories', [ProductController::class, 'getCategories']);
     Route::post('sub-categories', [ProductController::class, 'getSubCategories']); // POST allows body params
     Route::post('products', [ProductController::class, 'getProducts']);

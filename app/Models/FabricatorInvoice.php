@@ -11,16 +11,18 @@ class FabricatorInvoice extends Model
 
     protected $table = 'fabricator_invoices';
 
-    protected $fillable = [
-        'fabricator_id',
-        'invoice_type',
-        'invoice_no',
-        'invoice_date',
-        'amount',
-        'category',
-        'qty',
-        'original_invoice_no',
-    ];
+  protected $fillable = [
+    'cust_id',
+    'invoice_type',
+    'invoice_no',
+    'invoice_date',
+    'amount',
+    'category',
+    'qty',
+    'original_invoice_no',
+    'debit',
+    'credit'
+];
 
     protected $casts = [
         'invoice_date' => 'date',

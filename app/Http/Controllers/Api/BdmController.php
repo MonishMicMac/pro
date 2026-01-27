@@ -2086,7 +2086,137 @@ public function getJointWorkRequests(Request $request)
         }
     }
 
-  /**
+//   /**
+//      * Get Kilometers Coverage Data
+//      * Lists all locations (Check-in/out) + Attendance Punch In/Out details
+//      */
+//     public function getKmCoverage(Request $request)
+//     {
+//         // 1. Validate Inputs
+//         $validator = Validator::make($request->all(), [
+//             'user_id' => 'required|exists:users,id',
+//             'date'    => 'required|date_format:Y-m-d',
+//         ]);
+
+//         if ($validator->fails()) {
+//             return response()->json(['status' => false, 'message' => $validator->errors()->first()], 200);
+//         }
+
+//         try {
+//             // =========================================================
+//             // PART 1: Get Attendance Data (Punch In/Out Coordinates)
+//             // =========================================================
+//             $attendanceRecord = UserAttendance::where('user_id', $request->user_id)
+//                 ->where('date', $request->date)
+//                 ->first();
+
+//             $attendanceData = [
+//                 'status'         => 'Absent', // Default
+//                 'punch_in_time'  => null,
+//                 'punch_in_lat'   => null,
+//                 'punch_in_long'  => null,
+//                 'punch_out_time' => null,
+//                 'punch_out_lat'  => null,
+//                 'punch_out_long' => null,
+//             ];
+
+//             if ($attendanceRecord) {
+//                 $attendanceData = [
+//                     'status'         => $attendanceRecord->status, // e.g., 'Present'
+//                     'punch_in_time'  => $attendanceRecord->punch_in_time,
+//                     'punch_in_lat'   => $attendanceRecord->in_lat,
+//                     'punch_in_long'  => $attendanceRecord->in_long,
+//                     'punch_out_time' => $attendanceRecord->punch_out_time,
+//                     'punch_out_lat'  => $attendanceRecord->out_lat,
+//                     'punch_out_long' => $attendanceRecord->out_long,
+//                 ];
+//             }
+
+//             // =========================================================
+//             // PART 2: Get Visit Data (In-Progress or Completed)
+//             // =========================================================
+//             $visits = LeadVisitBdm::with(['lead', 'account', 'fabricator', 'bdo'])
+//                 ->where('user_id', $request->user_id)
+//                 ->whereDate('schedule_date', $request->date)
+//                 ->whereNotNull('intime') // Must have checked in
+//                 ->orderBy('intime', 'asc')
+//                 ->get();
+
+//             $individualWork = [];
+//             $jointWork      = [];
+//             $totalVisits    = 0;
+
+//             foreach ($visits as $row) {
+//                 // Resolve Client Name
+//                 $clientName = 'Unknown';
+                
+//                 if ($row->visit_type == '1') {
+//                     $clientName = $row->account ? $row->account->name : 'Unknown Account';
+//                 } elseif ($row->visit_type == '2') {
+//                     $clientName = $row->lead ? $row->lead->name : 'Unknown Lead';
+//                 } elseif ($row->visit_type == '3') {
+//                     $clientName = $row->fabricator ? $row->fabricator->shop_name : 'Unknown Fabricator';
+//                 }
+
+//                 $visitStatus = $row->outtime ? 'Completed' : 'In Progress';
+
+//                 $data = [
+//                     'visit_id'     => $row->id,
+//                     'client_name'  => $clientName,
+//                     'visit_type'   => match((string)$row->visit_type) {
+//                         '1' => 'Account',
+//                         '2' => 'Lead',
+//                         '3' => 'Fabricator',
+//                         default => 'Unknown'
+//                     },
+//                     'work_type'    => $row->work_type,
+//                     'bdo_name'     => ($row->work_type === 'Joint Work' && $row->bdo) ? $row->bdo->name : null,
+//                     'visit_status' => $visitStatus,
+                    
+//                     // Visit Coordinates
+//                     'in_lat'       => $row->inlat,
+//                     'in_long'      => $row->inlong,
+//                     'out_lat'      => $row->outlat,
+//                     'out_long'     => $row->outlong,
+                    
+//                     // Visit Timings
+//                     'intime'       => $row->intime,
+//                     'outtime'      => $row->outtime,
+//                 ];
+
+//                 if ($row->work_type === 'Joint Work') {
+//                     $jointWork[] = $data;
+//                 } else {
+//                     $individualWork[] = $data;
+//                 }
+//                 $totalVisits++;
+//             }
+
+//             // =========================================================
+//             // PART 3: Return Combined Response
+//             // =========================================================
+//             return response()->json([
+//                 'status'  => true,
+//                 'message' => 'KM Coverage data retrieved successfully',
+//                 'date'    => $request->date,
+//                 'attendance' => $attendanceData, // <--- New Section
+//                 'counts'  => [
+//                     'total_visited' => $totalVisits,
+//                     'individual'    => count($individualWork),
+//                     'joint'         => count($jointWork)
+//                 ],
+//                 'data'    => [
+//                     'individual_work' => $individualWork,
+//                     'joint_work'      => $jointWork,
+//                 ]
+//             ], 200);
+
+//         } catch (\Exception $e) {
+//             return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 200);
+//         }
+//     }
+
+/**
      * Get Kilometers Coverage Data
      * Lists all locations (Check-in/out) + Attendance Punch In/Out details
      */
@@ -2104,14 +2234,14 @@ public function getJointWorkRequests(Request $request)
 
         try {
             // =========================================================
-            // PART 1: Get Attendance Data (Punch In/Out Coordinates)
+            // PART 1: Get Attendance Data
             // =========================================================
             $attendanceRecord = UserAttendance::where('user_id', $request->user_id)
                 ->where('date', $request->date)
                 ->first();
 
             $attendanceData = [
-                'status'         => 'Absent', // Default
+                'status'         => 'Absent',
                 'punch_in_time'  => null,
                 'punch_in_lat'   => null,
                 'punch_in_long'  => null,
@@ -2122,7 +2252,7 @@ public function getJointWorkRequests(Request $request)
 
             if ($attendanceRecord) {
                 $attendanceData = [
-                    'status'         => $attendanceRecord->status, // e.g., 'Present'
+                    'status'         => $attendanceRecord->status,
                     'punch_in_time'  => $attendanceRecord->punch_in_time,
                     'punch_in_lat'   => $attendanceRecord->in_lat,
                     'punch_in_long'  => $attendanceRecord->in_long,
@@ -2133,18 +2263,18 @@ public function getJointWorkRequests(Request $request)
             }
 
             // =========================================================
-            // PART 2: Get Visit Data (In-Progress or Completed)
+            // PART 2: Get Visit Data (Sorted by Time)
             // =========================================================
             $visits = LeadVisitBdm::with(['lead', 'account', 'fabricator', 'bdo'])
                 ->where('user_id', $request->user_id)
                 ->whereDate('schedule_date', $request->date)
-                ->whereNotNull('intime') // Must have checked in
-                ->orderBy('intime', 'asc')
+                ->whereNotNull('intime')
+                ->orderBy('intime', 'asc') // <--- Ensures Ascending Order
                 ->get();
 
-            $individualWork = [];
-            $jointWork      = [];
-            $totalVisits    = 0;
+            $visitList = []; // Single array for all data
+            $individualCount = 0;
+            $jointCount = 0;
 
             foreach ($visits as $row) {
                 // Resolve Client Name
@@ -2160,8 +2290,19 @@ public function getJointWorkRequests(Request $request)
 
                 $visitStatus = $row->outtime ? 'Completed' : 'In Progress';
 
-                $data = [
+                // Determine Type Label and Count
+                $isJoint = ($row->work_type === 'Joint Work');
+                if ($isJoint) {
+                    $typeLabel = "Joint Work";
+                    $jointCount++;
+                } else {
+                    $typeLabel = "Individual";
+                    $individualCount++;
+                }
+
+                $visitList[] = [
                     'visit_id'     => $row->id,
+                    'type'         => $typeLabel, // <--- New 'type' key
                     'client_name'  => $clientName,
                     'visit_type'   => match((string)$row->visit_type) {
                         '1' => 'Account',
@@ -2169,46 +2310,36 @@ public function getJointWorkRequests(Request $request)
                         '3' => 'Fabricator',
                         default => 'Unknown'
                     },
-                    'work_type'    => $row->work_type,
-                    'bdo_name'     => ($row->work_type === 'Joint Work' && $row->bdo) ? $row->bdo->name : null,
+                    'work_type'    => $row->work_type, // Keeping original key just in case
+                    'bdo_name'     => ($isJoint && $row->bdo) ? $row->bdo->name : null,
                     'visit_status' => $visitStatus,
                     
-                    // Visit Coordinates
+                    // Coordinates
                     'in_lat'       => $row->inlat,
                     'in_long'      => $row->inlong,
                     'out_lat'      => $row->outlat,
                     'out_long'     => $row->outlong,
                     
-                    // Visit Timings
+                    // Timings
                     'intime'       => $row->intime,
                     'outtime'      => $row->outtime,
                 ];
-
-                if ($row->work_type === 'Joint Work') {
-                    $jointWork[] = $data;
-                } else {
-                    $individualWork[] = $data;
-                }
-                $totalVisits++;
             }
 
             // =========================================================
-            // PART 3: Return Combined Response
+            // PART 3: Return Response
             // =========================================================
             return response()->json([
-                'status'  => true,
-                'message' => 'KM Coverage data retrieved successfully',
-                'date'    => $request->date,
-                'attendance' => $attendanceData, // <--- New Section
-                'counts'  => [
-                    'total_visited' => $totalVisits,
-                    'individual'    => count($individualWork),
-                    'joint'         => count($jointWork)
+                'status'     => true,
+                'message'    => 'KM Coverage data retrieved successfully',
+                'date'       => $request->date,
+                'attendance' => $attendanceData,
+                'counts'     => [
+                    'total_visited' => count($visitList),
+                    'individual'    => $individualCount,
+                    'joint'         => $jointCount
                 ],
-                'data'    => [
-                    'individual_work' => $individualWork,
-                    'joint_work'      => $jointWork,
-                ]
+                'data'       => $visitList // <--- Flattened List
             ], 200);
 
         } catch (\Exception $e) {

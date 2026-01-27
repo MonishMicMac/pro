@@ -1093,12 +1093,102 @@ public function leadCheckOut(Request $request)
      * Allows multiple visits in one request array for bdo
      */
 
+    // public function storeUnplannedSchedule(Request $request)
+    // {
+    //     // ============================================================
+    //     // 1. FAIL-SAFE: Force JSON Decoding if Header is Missing
+    //     // ============================================================
+    //     // If $request->all() is empty but there is raw content, decode it manually.
+    //     if (empty($request->all()) && !empty($request->getContent())) {
+    //         $data = json_decode($request->getContent(), true);
+    //         if (is_array($data)) {
+    //             $request->merge($data);
+    //         }
+    //     }
+
+    //     // ============================================================
+    //     // 2. VALIDATION
+    //     // ============================================================
+    //     $validator = Validator::make($request->all(), [
+    //         'user_id' => 'required|exists:users,id',
+    //         'visits' => 'required|array|min:1',
+
+    //         'visits.*.visit_type' => 'required|in:1,2,3',
+
+    //         // Dynamic requirements
+    //         'visits.*.account_id' => 'nullable|required_if:visits.*.visit_type,1',
+    //         'visits.*.lead_id' => 'nullable|required_if:visits.*.visit_type,2',
+    //         'visits.*.fabricator_id' => 'nullable|required_if:visits.*.visit_type,3',
+
+    //         'visits.*.bdm_id' => 'nullable|string',
+    //         'visits.*.bdo_id' => 'nullable|string',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $validator->errors()->first()
+    //         ], 422);
+    //     }
+
+    //     try {
+    //         $today = Carbon::today()->toDateString();
+
+    //         // 3. AUTO-CALCULATE FOOD ALLOWANCE
+    //         // Check if there is a PLANNED visit for today to copy allowance setting
+    //         $plannedVisit = \App\Models\LeadVisit::where('user_id', $request->user_id)
+    //             ->where('type', 'planned')
+    //             ->whereDate('schedule_date', $today)
+    //             ->first();
+
+    //         $autoFoodAllowance = $plannedVisit ? $plannedVisit->food_allowance : '1';
+
+    //         $createdVisits = [];
+
+    //         // 4. CREATE VISITS LOOP
+    //         foreach ($request->visits as $visitItem) {
+
+    //             $visit = \App\Models\LeadVisit::create([
+    //                 'user_id' => $request->user_id,
+    //                 'type' => 'unplanned',
+    //                 'schedule_date' => $today,
+    //                 'food_allowance' => $autoFoodAllowance,
+    //                 'action' => '0',
+
+    //                 // Data from JSON array
+    //                 'visit_type' => $visitItem['visit_type'],
+    //                 'work_type' => $visitItem['work_type'] ?? 'Individual',
+
+    //                 // Conditional IDs
+    //                 'account_id' => ($visitItem['visit_type'] == 1) ? ($visitItem['account_id'] ?? null) : null,
+    //                 'lead_id' => ($visitItem['visit_type'] == 2) ? ($visitItem['lead_id'] ?? null) : null,
+    //                 'fabricator_id' => ($visitItem['visit_type'] == 3) ? ($visitItem['fabricator_id'] ?? null) : null,
+
+    //                 // Manager IDs
+    //                 'bdm_id' => $visitItem['bdm_id'] ?? $request->user_id,
+    //                 'bdo_id' => $visitItem['bdo_id'] ?? null,
+    //             ]);
+
+    //             $createdVisits[] = $visit;
+    //         }
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => count($createdVisits) . ' unplanned visit(s) created successfully.',
+    //             'data' => $createdVisits
+    //         ], 201);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Error: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
     public function storeUnplannedSchedule(Request $request)
     {
         // ============================================================
         // 1. FAIL-SAFE: Force JSON Decoding if Header is Missing
         // ============================================================
-        // If $request->all() is empty but there is raw content, decode it manually.
         if (empty($request->all()) && !empty($request->getContent())) {
             $data = json_decode($request->getContent(), true);
             if (is_array($data)) {
@@ -1111,23 +1201,21 @@ public function leadCheckOut(Request $request)
         // ============================================================
         $validator = Validator::make($request->all(), [
             'user_id' => 'required|exists:users,id',
-            'visits' => 'required|array|min:1',
+            'visits'  => 'required|array|min:1',
+            'remarks' => 'nullable',
 
+            // Visit Items Validation
             'visits.*.visit_type' => 'required|in:1,2,3',
-            'visits.*.work_type' => 'required|in:Individual,Joint Work',
-
-            // Dynamic requirements
-            'visits.*.account_id' => 'nullable|required_if:visits.*.visit_type,1',
-            'visits.*.lead_id' => 'nullable|required_if:visits.*.visit_type,2',
+            
+            // Dynamic requirements based on type
+            'visits.*.account_id'    => 'nullable|required_if:visits.*.visit_type,1',
+            'visits.*.lead_id'       => 'nullable|required_if:visits.*.visit_type,2',
             'visits.*.fabricator_id' => 'nullable|required_if:visits.*.visit_type,3',
-
-            'visits.*.bdm_id' => 'nullable|string',
-            'visits.*.bdo_id' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => $validator->errors()->first()
             ], 422);
         }
@@ -1136,12 +1224,13 @@ public function leadCheckOut(Request $request)
             $today = Carbon::today()->toDateString();
 
             // 3. AUTO-CALCULATE FOOD ALLOWANCE
-            // Check if there is a PLANNED visit for today to copy allowance setting
+            // Check if there is already a PLANNED visit for today to copy the allowance setting
             $plannedVisit = \App\Models\LeadVisit::where('user_id', $request->user_id)
                 ->where('type', 'planned')
                 ->whereDate('schedule_date', $today)
                 ->first();
 
+            // Use existing allowance if found, otherwise default to '1' (Local Station)
             $autoFoodAllowance = $plannedVisit ? $plannedVisit->food_allowance : '1';
 
             $createdVisits = [];
@@ -1150,37 +1239,35 @@ public function leadCheckOut(Request $request)
             foreach ($request->visits as $visitItem) {
 
                 $visit = \App\Models\LeadVisit::create([
-                    'user_id' => $request->user_id,
-                    'type' => 'unplanned',
+                    'user_id'       => $request->user_id,
+                    'type'          => 'unplanned',
                     'schedule_date' => $today,
-                    'food_allowance' => $autoFoodAllowance,
-                    'action' => '0',
+                    'food_allowance'=> $autoFoodAllowance,
+                    'action'        => '0', // Default pending
+                    'remarks'       => $request->remarks, // Shared remarks
 
-                    // Data from JSON array
-                    'visit_type' => $visitItem['visit_type'],
-                    'work_type' => $visitItem['work_type'] ?? 'Individual',
+                    // IDs
+                    'bdo_id'        => $request->user_id, // Same as storeSchedule
+                    'visit_type'    => $visitItem['visit_type'],
 
-                    // Conditional IDs
-                    'account_id' => ($visitItem['visit_type'] == 1) ? ($visitItem['account_id'] ?? null) : null,
-                    'lead_id' => ($visitItem['visit_type'] == 2) ? ($visitItem['lead_id'] ?? null) : null,
+                    // Conditional IDs based on type
+                    'account_id'    => ($visitItem['visit_type'] == 1) ? ($visitItem['account_id'] ?? null) : null,
+                    'lead_id'       => ($visitItem['visit_type'] == 2) ? ($visitItem['lead_id'] ?? null) : null,
                     'fabricator_id' => ($visitItem['visit_type'] == 3) ? ($visitItem['fabricator_id'] ?? null) : null,
-
-                    // Manager IDs
-                    'bdm_id' => $visitItem['bdm_id'] ?? $request->user_id,
-                    'bdo_id' => $visitItem['bdo_id'] ?? null,
                 ]);
 
                 $createdVisits[] = $visit;
             }
 
             return response()->json([
-                'status' => true,
+                'status'  => true,
                 'message' => count($createdVisits) . ' unplanned visit(s) created successfully.',
-                'data' => $createdVisits
+                'data'    => $createdVisits
             ], 201);
+
         } catch (\Exception $e) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
@@ -2348,6 +2435,108 @@ public function leadCheckOut(Request $request)
         ], 200);
     }
 
+    // /**
+    //  * View BDO Tour Plan for a Specific Date
+    //  * Segregates data into Joint Work and Individual Work
+    //  * Uses LeadVisit model
+    //  */
+    // public function viewBdoTourPlan(Request $request)
+    // {
+    //     // 1. Validate Inputs
+    //     $validator = Validator::make($request->all(), [
+    //         'user_id' => 'required|exists:users,id',
+    //         'date' => 'required|date_format:Y-m-d',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+    //     }
+
+    //     // 2. Fetch Visits from LeadVisit
+    //     // Using LIKE query to match date string regardless of time component
+    //     $visits = LeadVisit::with(['lead', 'account', 'fabricator'])
+    //         ->where('user_id', $request->user_id)
+    //         ->where('schedule_date', 'like', $request->date . '%')
+    //         ->orderBy('created_at', 'desc')
+    //         ->get();
+
+    //     // 3. Initialize Structure
+    //     $jointWork = [];
+    //     $individualWork = [];
+
+    //     $statusMap = [
+    //         '0' => 'Not Planned',
+    //         '1' => 'Local Station',
+    //         '2' => 'Out Station',
+    //         '3' => 'Meeting',
+    //         '4' => 'Leave',
+    //     ];
+
+    //     // Determine Overall Day Status
+    //     $dayStatusId = $visits->isNotEmpty() ? $visits->first()->food_allowance : '0';
+    //     $dayStatusLabel = $statusMap[$dayStatusId] ?? 'Unknown';
+
+    //     // 4. Loop and Segregate
+    //     foreach ($visits as $row) {
+
+    //         // Resolve Name
+    //         $name = null;
+    //         if ($row->visit_type == '1') { // Account
+    //             $name = $row->account ? $row->account->name : 'Unknown Account';
+    //         } elseif ($row->visit_type == '2') { // Lead
+    //             $name = $row->lead ? $row->lead->name : 'Unknown Lead';
+    //         } elseif ($row->visit_type == '3') { // Fabricator
+    //             $name = $row->fabricator ? $row->fabricator->shop_name : 'Unknown Fabricator';
+    //         }
+
+    //         // Build Data Object
+    //         $data = [
+    //             'visit_id' => $row->id,
+    //             'visit_type_id' => $row->visit_type,
+    //             'visit_type' => match ($row->visit_type) {
+    //                 '1' => 'Account',
+    //                 '2' => 'Lead',
+    //                 '3' => 'Fabricator',
+    //                 default => 'Unknown'
+    //             },
+    //             'name' => $name,
+
+    //             // IDs
+    //             'lead_id' => $row->lead_id,
+    //             'account_id' => $row->account_id,
+    //             'fabricator_id' => $row->fabricator_id,
+
+    //             // Details
+    //             'work_type' => $row->work_type,
+    //             'remarks' => $row->remarks,
+    //             'status' => ($row->action == '2') ? 'Visited' : 'Pending',
+    //             'schedule_date' => $row->schedule_date,
+    //             'visit_date' => $row->visit_date,
+    //             'intime' => $row->intime_time,
+    //             'outtime' => $row->out_time,
+    //         ];
+
+    //         // Segregate
+    //         if ($row->work_type === 'Joint Work') {
+    //             $jointWork[] = $data;
+    //         } else {
+    //             $individualWork[] = $data;
+    //         }
+    //     }
+
+    //     return response()->json([
+    //         'status' => true,
+    //         'message' => 'BDO Tour plan details retrieved successfully',
+    //         'data' => [
+    //             'date' => $request->date,
+    //             'day_status' => $dayStatusLabel,
+    //             'total_visits' => $visits->count(),
+    //             'joint_work' => $jointWork,
+    //             'individual_work' => $individualWork,
+    //         ]
+    //     ], 200);
+    // }
+
     /**
      * View BDO Tour Plan for a Specific Date
      * Segregates data into Joint Work and Individual Work
@@ -2358,7 +2547,7 @@ public function leadCheckOut(Request $request)
         // 1. Validate Inputs
         $validator = Validator::make($request->all(), [
             'user_id' => 'required|exists:users,id',
-            'date' => 'required|date_format:Y-m-d',
+            'date'    => 'required|date_format:Y-m-d',
         ]);
 
         if ($validator->fails()) {
@@ -2374,7 +2563,7 @@ public function leadCheckOut(Request $request)
             ->get();
 
         // 3. Initialize Structure
-        $jointWork = [];
+        $jointWork      = [];
         $individualWork = [];
 
         $statusMap = [
@@ -2386,47 +2575,62 @@ public function leadCheckOut(Request $request)
         ];
 
         // Determine Overall Day Status
-        $dayStatusId = $visits->isNotEmpty() ? $visits->first()->food_allowance : '0';
+        $dayStatusId    = $visits->isNotEmpty() ? $visits->first()->food_allowance : '0';
         $dayStatusLabel = $statusMap[$dayStatusId] ?? 'Unknown';
 
         // 4. Loop and Segregate
         foreach ($visits as $row) {
 
-            // Resolve Name
-            $name = null;
+            // Initialize variables
+            $name    = null;
+            $address = null;
+            $mobile  = null;
+
+            // --- Resolve Name, Address, and Mobile based on Type ---
             if ($row->visit_type == '1') { // Account
-                $name = $row->account ? $row->account->name : 'Unknown Account';
-            } elseif ($row->visit_type == '2') { // Lead
-                $name = $row->lead ? $row->lead->name : 'Unknown Lead';
-            } elseif ($row->visit_type == '3') { // Fabricator
-                $name = $row->fabricator ? $row->fabricator->shop_name : 'Unknown Fabricator';
+                $name    = $row->account ? $row->account->name : 'Unknown Account';
+                $address = $row->account ? $row->account->address : null;
+                $mobile  = $row->account ? $row->account->mobile_number : null;
+            } 
+            elseif ($row->visit_type == '2') { // Lead
+                $name    = $row->lead ? $row->lead->name : 'Unknown Lead';
+                // Check site_address first, fallback to regular address
+                $address = $row->lead ? ($row->lead->site_address ?? $row->lead->address) : null;
+                $mobile  = $row->lead ? $row->lead->phone_number : null;
+            } 
+            elseif ($row->visit_type == '3') { // Fabricator
+                $name    = $row->fabricator ? $row->fabricator->shop_name : 'Unknown Fabricator';
+                $address = $row->fabricator ? $row->fabricator->address : null;
+                $mobile  = $row->fabricator ? $row->fabricator->mobile : null;
             }
 
             // Build Data Object
             $data = [
-                'visit_id' => $row->id,
+                'visit_id'      => $row->id,
                 'visit_type_id' => $row->visit_type,
-                'visit_type' => match ($row->visit_type) {
-                    '1' => 'Account',
-                    '2' => 'Lead',
-                    '3' => 'Fabricator',
+                'visit_type'    => match ($row->visit_type) {
+                    '1'     => 'Account',
+                    '2'     => 'Lead',
+                    '3'     => 'Fabricator',
                     default => 'Unknown'
                 },
-                'name' => $name,
+                'name'          => $name,
+                'mobile'        => $mobile,  // <--- Added Mobile
+                'address'       => $address, // <--- Added Address
 
                 // IDs
-                'lead_id' => $row->lead_id,
-                'account_id' => $row->account_id,
+                'lead_id'       => $row->lead_id,
+                'account_id'    => $row->account_id,
                 'fabricator_id' => $row->fabricator_id,
 
                 // Details
-                'work_type' => $row->work_type,
-                'remarks' => $row->remarks,
-                'status' => ($row->action == '2') ? 'Visited' : 'Pending',
+                'work_type'     => $row->work_type,
+                'remarks'       => $row->remarks,
+                'status'        => ($row->action == '2') ? 'Visited' : 'Pending',
                 'schedule_date' => $row->schedule_date,
-                'visit_date' => $row->visit_date,
-                'intime' => $row->intime_time,
-                'outtime' => $row->out_time,
+                'visit_date'    => $row->visit_date,
+                'intime'        => $row->intime_time,
+                'outtime'       => $row->out_time,
             ];
 
             // Segregate
@@ -2438,13 +2642,13 @@ public function leadCheckOut(Request $request)
         }
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'BDO Tour plan details retrieved successfully',
-            'data' => [
-                'date' => $request->date,
-                'day_status' => $dayStatusLabel,
-                'total_visits' => $visits->count(),
-                'joint_work' => $jointWork,
+            'data'    => [
+                'date'            => $request->date,
+                'day_status'      => $dayStatusLabel,
+                'total_visits'    => $visits->count(),
+                'joint_work'      => $jointWork,
                 'individual_work' => $individualWork,
             ]
         ], 200);

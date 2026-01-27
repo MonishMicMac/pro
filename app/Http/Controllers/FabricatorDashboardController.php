@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\FabricatorRequest;
 use App\Models\Fabricator;
+use App\Models\Lead;
 use Validator;
 use App\Models\MeasurementDetail;
 use Illuminate\Support\Facades\DB;
@@ -138,26 +139,57 @@ class FabricatorDashboardController extends Controller
                 ->addColumn('bdo', fn($r) => $r->lead->assignedUser->name ?? '-')
 
                 ->editColumn('status', function ($r) {
-                    return $r->status == '0'
-                        ? '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px]">Pending</span>'
-                        : '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px]">Completed</span>';
+                    if ($r->status == '0') {
+                        return '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px]">
+                    Pending
+                </span>';
+                    }
+
+                    if ($r->status == '1') {
+                        return '<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px]">
+                    Initial
+                </span>';
+                    }
+
+                    if ($r->status == '2') {
+                        return '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px]">
+                    Final
+                </span>';
+                    }
+
+                    return '-';
                 })
+
                 ->addColumn('approx_sqft', fn($r) => $r->approx_sqft ?? '-')
                 ->editColumn('created_at', fn($r) => $r->created_at->format('d/m/Y'))
 
                 ->addColumn('quotation_pdf', function ($r) {
-                    if (!$r->fabrication_pdf) {
-                        return '<span class="text-slate-400 text-xs">Not Uploaded</span>';
-                    }
 
-                    $url = Storage::disk('s3')->url($r->fabrication_pdf);
+                    // Prefer FINAL quotation
+                    if (!empty($r->lead?->final_quotation_pdf)) {
+                        $url = Storage::disk('s3')->url($r->lead->final_quotation_pdf);
 
-                    return '
-            <a href="' . $url . '" target="_blank" class="text-emerald-600">
+                        return '
+            <a href="' . $url . '" target="_blank" class="text-emerald-600" title="Final Quotation">
                 <span class="material-symbols-outlined">picture_as_pdf</span>
             </a>
         ';
+                    }
+
+                    // Fallback to INITIAL quotation
+                    if (!empty($r->fabrication_pdf)) {
+                        $url = Storage::disk('s3')->url($r->fabrication_pdf);
+
+                        return '
+            <a href="' . $url . '" target="_blank" class="text-blue-600" title="Initial Quotation">
+                <span class="material-symbols-outlined">picture_as_pdf</span>
+            </a>
+        ';
+                    }
+
+                    return '<span class="text-slate-400 text-xs">Not Uploaded</span>';
                 })
+
 
                 ->addColumn('view', function ($r) {
                     return '

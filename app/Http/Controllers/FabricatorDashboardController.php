@@ -34,7 +34,7 @@ class FabricatorDashboardController extends Controller
             ->where('status', '0')->count();
 
         $completed = FabricatorRequest::where('fabricator_id', $id)
-            ->where('status', '1')->count();
+            ->where('status', '1', '2')->count();
 
         return view('fabricator.dashboard', compact(
             'fabricator',
@@ -191,88 +191,189 @@ class FabricatorDashboardController extends Controller
         );
     }
 
-
-
-
     public function uploadFabricationDetails(Request $request)
     {
-        // 1. Initial Validation
         $validator = Validator::make($request->all(), [
             'lead_id'       => 'required|exists:leads,id',
-            'fabricator_id' => 'required|exists:fabricators,id',
+            'fabricator_id' => 'required|exists:users,id',
             'rate_per_sqft' => 'required|numeric|min:0',
-            'total_quotation_amount'  => 'required|numeric|min:0',
             'pdf_file'      => 'required|file|mimes:pdf|max:10240',
+            'total_value'   => 'required|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
-            // This will now catch the "failed to upload" error early
             return response()->json([
-                'status'  => false,
-                'message' => 'Validation Error',
-                'reason'  => $validator->errors()->first()
+                'status' => false,
+                'reason' => $validator->errors()->first()
             ], 422);
         }
 
         try {
             DB::beginTransaction();
 
-            $file = $request->file('pdf_file');
+            $lead = Lead::lockForUpdate()->findOrFail($request->lead_id);
 
-            if (!$file->isValid()) {
-                throw new \Exception("System Upload Error: " . $file->getErrorMessage());
-            }
-
-            /**
-             * Upload to S3 → quotation folder
-             */
-            $upload = S3UploadHelper::upload(
-                $file,
-                'quotation'   // 👈 folder name in S3
-            );
-
-
-
-            // Update Record
-            $fabRequest = \App\Models\FabricatorRequest::where('lead_id', $request->lead_id)
+            $fabRequest = FabricatorRequest::where('lead_id', $request->lead_id)
                 ->where('fabricator_id', $request->fabricator_id)
                 ->firstOrFail();
 
-            $fabRequest->update([
-                'fabrication_pdf'        => $upload['path'],
-                'rate_per_sqft'   => $request->rate_per_sqft,
-                'total_quotation_amount'   => $request->total_quotation_amount,
-                'status'          => '1'
-            ]);
+            // ================================
+            // Determine upload type
+            // ================================
+            $isFirstUpload  = empty($fabRequest->fabrication_pdf);
+            $isSecondUpload = !$isFirstUpload && empty($lead->final_quotation_pdf);
 
-            // Update Lead Stage to 4
-            $lead = \App\Models\Lead::findOrFail($request->lead_id);
-            $lead->update([
-                'lead_stage' => 4,
-                'total_quotation_amount'   => $request->total_quotation_amount
-            ]);
+            // ❌ Block 3rd upload
+            if (!$isFirstUpload && !$isSecondUpload) {
+                return response()->json([
+                    'status' => false,
+                    'reason' => 'Quotation already finalized. Further uploads are not allowed.'
+                ], 403);
+            }
 
-            \App\Helpers\LeadHelper::logStatus($lead, $lead->building_status, 4);
+            // ================================
+            // Store file
+            // ================================
+            $file = $request->file('pdf_file');
+            $fileName = 'fab_' . $request->lead_id . '_' . time() . '.pdf';
+            $path = $file->storeAs('fabrication_docs', $fileName, 'public');
 
-            MeasurementDetail::where('lead_id', $request->lead_id)
-                ->update([
-                    'is_sent_to_quote' => 1
+            // ================================
+            // FIRST UPLOAD → FabricatorRequest
+            // ================================
+            if ($isFirstUpload) {
+                $fabRequest->update([
+                    'fabrication_pdf' => $path,
+                    'rate_per_sqft'   => $request->rate_per_sqft,
+                    'total_value'     => $request->total_value,
+                    'status'          => '1', // Initial
                 ]);
+
+                $lead->update([
+                    'lead_stage'  => 4,
+                    'total_value' => $request->total_value,
+                ]);
+
+                LeadHelper::logStatus($lead, $lead->building_status, 4);
+            }
+
+            // ================================
+            // SECOND UPLOAD → Leads table ONLY
+            // ================================
+            if ($isSecondUpload) {
+                $lead->update([
+                    'final_quotation_pdf' => $path,
+                    'total_value'         => $request->total_value,
+                    'final_rate_per_sqft'   => $request->rate_per_sqft,
+                ]);
+
+                // Optional status update
+                $fabRequest->update([
+                    'status' => '2', // Final submitted
+                ]);
+            }
 
             DB::commit();
 
             return response()->json([
-                'status' => true,
-                'message' => 'Quotation uploaded successfully',
-                'pdf_url' => $upload['url']
-            ], 200);
+                'status'   => true,
+                'message'  => $isFirstUpload
+                    ? 'Initial quotation uploaded successfully'
+                    : 'Final quotation uploaded successfully',
+                'pdf_url'  => asset('storage/' . $path),
+                'is_final' => $isSecondUpload
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'status'  => false,
-                'message' => 'Upload Failed',
-                'reason'  => $e->getMessage()
+                'status' => false,
+                'reason' => $e->getMessage()
             ], 500);
         }
     }
+
+
+
+
+    // public function uploadFabricationDetails(Request $request)
+    // {
+    //     // 1. Initial Validation
+    //     $validator = Validator::make($request->all(), [
+    //         'lead_id'       => 'required|exists:leads,id',
+    //         'fabricator_id' => 'required|exists:fabricators,id',
+    //         'rate_per_sqft' => 'required|numeric|min:0',
+    //         'total_quotation_amount'  => 'required|numeric|min:0',
+    //         'pdf_file'      => 'required|file|mimes:pdf|max:10240',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         // This will now catch the "failed to upload" error early
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Validation Error',
+    //             'reason'  => $validator->errors()->first()
+    //         ], 422);
+    //     }
+
+    //     try {
+    //         DB::beginTransaction();
+
+    //         $file = $request->file('pdf_file');
+
+    //         if (!$file->isValid()) {
+    //             throw new \Exception("System Upload Error: " . $file->getErrorMessage());
+    //         }
+
+    //         /**
+    //          * Upload to S3 → quotation folder
+    //          */
+    //         $upload = S3UploadHelper::upload(
+    //             $file,
+    //             'quotation'   // 👈 folder name in S3
+    //         );
+
+
+
+    //         // Update Record
+    //         $fabRequest = \App\Models\FabricatorRequest::where('lead_id', $request->lead_id)
+    //             ->where('fabricator_id', $request->fabricator_id)
+    //             ->firstOrFail();
+
+    //         $fabRequest->update([
+    //             'fabrication_pdf'        => $upload['path'],
+    //             'rate_per_sqft'   => $request->rate_per_sqft,
+    //             'total_quotation_amount'   => $request->total_quotation_amount,
+    //             'status'          => '1'
+    //         ]);
+
+    //         // Update Lead Stage to 4
+    //         $lead = \App\Models\Lead::findOrFail($request->lead_id);
+    //         $lead->update([
+    //             'lead_stage' => 4,
+    //             'total_quotation_amount'   => $request->total_quotation_amount
+    //         ]);
+
+    //         \App\Helpers\LeadHelper::logStatus($lead, $lead->building_status, 4);
+
+    //         MeasurementDetail::where('lead_id', $request->lead_id)
+    //             ->update([
+    //                 'is_sent_to_quote' => 1
+    //             ]);
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Quotation uploaded successfully',
+    //             'pdf_url' => $upload['url']
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Upload Failed',
+    //             'reason'  => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 }

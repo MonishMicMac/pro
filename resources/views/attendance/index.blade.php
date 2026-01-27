@@ -50,30 +50,82 @@
     </div>
 
     <!-- Filters Section -->
-    <div class="glass-panel rounded-[1.5rem] p-4 relative z-20">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="relative z-30">
+    <div class="glass-panel rounded-[1.5rem] p-4 relative z-20 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            
+            <div class="col-span-1 md:col-span-1">
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Search</label>
+                <div class="relative w-full">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">search</span>
+                    <input id="customSearch" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all" placeholder="Search..." type="text"/>
+                </div>
+            </div>
+
+            @if(!Auth::user()->hasRole(['ZSM', 'BDM', 'BDO']))
+            <div class="col-span-1 md:col-span-1">
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Zone</label>
+                <select id="filter_zone_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                    <option value="">All Zones</option>
+                    @foreach($zones as $zone)
+                        <option value="{{ $zone->id }}">{{ $zone->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+
+            @if(!Auth::user()->hasRole(['ZSM', 'BDM', 'BDO']))
+            <div class="col-span-1 md:col-span-1">
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Zone Manager</label>
+                <select id="filter_zsm_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                    <option value="">All ZSMs</option>
+                </select>
+            </div>
+            @endif
+
+            @if(!Auth::user()->hasRole(['BDM', 'BDO']))
+            <div class="col-span-1 md:col-span-1">
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Manager</label>
+                <select id="filter_manager_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                    <option value="">All Managers</option>
+                </select>
+            </div>
+            @endif
+
+            @if(!Auth::user()->hasRole('BDO'))
+            <div class="col-span-1 md:col-span-1">
+                <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">BDO</label>
+                <select id="filter_bdo_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
+                    <option value="">All BDOs</option>
+                </select>
+            </div>
+            @endif
+
+             <div class="col-span-1 md:col-span-1 hidden">
                 <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">User</label>
-                <select id="filter_user_id" class="form-input-custom force-click">
+                <select id="filter_user_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
                     <option value="">All Users</option>
                     @foreach($users as $user)
                         <option value="{{ $user->id }}">{{ $user->name }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="relative z-30">
+
+
+            <div class="col-span-1 md:col-span-1">
                 <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">From Date</label>
-                <input type="date" id="filter_from_date" class="form-input-custom force-click">
+                <input type="date" id="filter_from_date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
             </div>
-            <div class="relative z-30">
+            
+             <div class="col-span-1 md:col-span-1">
                 <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">To Date</label>
-                <input type="date" id="filter_to_date" class="form-input-custom force-click">
+                <input type="date" id="filter_to_date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:border-blue-500 transition-all">
             </div>
-            <div class="flex items-end gap-2 relative z-30">
-                <button id="btn_filter" class="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95">
+
+            <div class="flex items-end gap-2 col-span-1 md:col-span-1">
+                <button id="btn_filter" class="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-[18px]">filter_list</span> Filter
                 </button>
-                <button id="btn_reset" class="px-3 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all active:scale-95">
+                <button id="btn_reset" class="px-3 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center">
                     <span class="material-symbols-outlined text-[18px]">restart_alt</span>
                 </button>
             </div>
@@ -82,7 +134,7 @@
 
     <!-- Table Section -->
     <div class="glass-panel rounded-[1.5rem] overflow-hidden relative z-10">
-        <div class="px-4 overflow-x-auto pt-4">
+                <div class="px-4 overflow-x-auto pt-4">
             <table class="w-full" id="attendance-table">
                 <thead>
                     <tr class="text-left">
@@ -93,9 +145,12 @@
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Punch Out</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Spent Time</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Traveled Time</th>
-                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">KM (In/Out/Diff)</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Start KM</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">End KM</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Traveled KM</th>
                         <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Status</th>
-                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Photos</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Start Ph.</th>
+                        <th class="px-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">End Ph.</th>
                         <th class="pr-4 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-end">Map</th>
                     </tr>
                 </thead>
@@ -125,9 +180,9 @@
 
 <!-- Image Modal -->
 <div id="imageModal" class="fixed inset-0 z-[9999] hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-all duration-300 opacity-0" onclick="closeModal('imageModal')">
-    <div class="modal-content relative transition-all duration-300 transform scale-95">
-        <img id="modalImage" src="" class="max-w-[90vw] max-h-[90vh] rounded-xl shadow-2xl border-4 border-white" alt="Attendance Photo">
-        <button type="button" onclick="closeModal('imageModal')" class="absolute -top-10 right-0 text-white hover:text-rose-400 transition-all">
+    <div class="modal-content relative transition-all duration-300 transform scale-95 flex justify-center items-center w-full h-full p-10">
+        <img id="modalImage" src="" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl border-4 border-white" alt="Attendance Photo">
+        <button type="button" onclick="closeModal('imageModal')" class="absolute top-5 right-5 text-white hover:text-rose-400 transition-all z-50">
             <span class="material-symbols-outlined text-[32px]">close</span>
         </button>
     </div>
@@ -142,6 +197,108 @@
         let map = null;
         let markers = [];
 
+        // Auth User Info
+        const authUser = {
+            id: "{{ Auth::id() }}",
+            zone_id: "{{ Auth::user()->zone_id }}",
+            // Check roles safely. Assuming Spatie logic works in Blade
+            is_zsm: {{ Auth::user()->hasRole('ZSM') ? 'true' : 'false' }},
+            is_bdm: {{ Auth::user()->hasRole('BDM') ? 'true' : 'false' }},
+            is_bdo: {{ Auth::user()->hasRole('BDO') ? 'true' : 'false' }}
+        };
+
+        function clearDropdown(id, placeholder) {
+            $(id).empty().append(`<option value="">All ${placeholder}</option>`);
+        }
+
+        // --- Dependent Dropdown Logic (Replicated from Leads) ---
+        function getZoneData(zoneId, callback) {
+            if (!zoneId) {
+                clearDropdown('#filter_zsm_id', 'ZSMs');
+                clearDropdown('#filter_manager_id', 'Managers');
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                return;
+            }
+            $.get("{{ route('get.location.data') }}", { type: 'zone', id: zoneId }, function(data) {
+                // Populate ZSMs
+                clearDropdown('#filter_zsm_id', 'ZSMs');
+                $.each(data.zsms, function(i, item) {
+                    $('#filter_zsm_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+                
+                // Populate Managers (BDM)
+                clearDropdown('#filter_manager_id', 'Managers');
+                $.each(data.bdms, function(i, item) {
+                    $('#filter_manager_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+
+                // Populate BDOs
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                $.each(data.bdos, function(i, item) {
+                    $('#filter_bdo_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+
+                if (callback) callback();
+            });
+        }
+
+        function getManagers(zsmId, callback) {
+            if (!zsmId) {
+                clearDropdown('#filter_manager_id', 'Managers');
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                return;
+            }
+            $.get("{{ route('get.location.data') }}", { type: 'bdm', id: zsmId }, function(data) {
+                clearDropdown('#filter_manager_id', 'Managers');
+                $.each(data, function(i, item) {
+                    $('#filter_manager_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+                if (callback) callback();
+            });
+        }
+
+        function getBdos(bdmId, callback) {
+            if (!bdmId) {
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                return;
+            }
+             $.get("{{ route('get.location.data') }}", { type: 'bdo', id: bdmId }, function(data) {
+                clearDropdown('#filter_bdo_id', 'BDOs');
+                $.each(data, function(i, item) {
+                    $('#filter_bdo_id').append(`<option value="${item.id}">${item.name}</option>`);
+                });
+                if (callback) callback();
+            });
+        }
+
+        // Change Handlers
+        $('#filter_zone_id').change(function() { getZoneData($(this).val()); });
+        $('#filter_zsm_id').change(function() { getManagers($(this).val()); });
+        $('#filter_manager_id').change(function() { getBdos($(this).val()); });
+
+        // --- Initialization Logic ---
+        if (authUser.zone_id) {
+            $('#filter_zone_id').val(authUser.zone_id).prop('disabled', true);
+            getZoneData(authUser.zone_id, function() {
+                // Auto-select based on Role
+                if (authUser.is_zsm) {
+                    $('#filter_zsm_id').val(authUser.id).prop('disabled', true);
+                    getManagers(authUser.id);
+                } else if (authUser.is_bdm) {
+                    // If BDM, they might not be in the ZSM list if ZSM not selected?
+                    // Actually, getZoneData loads ALL BDMs in that Zone.
+                    // So we can select safely.
+                    $('#filter_manager_id').val(authUser.id).prop('disabled', true);
+                    getBdos(authUser.id);
+                } else if (authUser.is_bdo) {
+                     $('#filter_bdo_id').val(authUser.id).prop('disabled', true);
+                }
+            });
+        } else {
+             // Admin or no Zone assigned: Check roles anyway (e.g. if ZSM but no zone_id? Unlikely)
+             // But if they are ZSM, they usually have zone_id.
+        }
+
         var table = $('#attendance-table').DataTable({
             processing: true,
             serverSide: true,
@@ -149,6 +306,10 @@
                 url: "{{ route('attendance.data') }}",
                 data: function (d) {
                     d.user_id = $('#filter_user_id').val();
+                    d.zone_id = $('#filter_zone_id').val();
+                    d.zsm_id = $('#filter_zsm_id').val();
+                    d.manager_id = $('#filter_manager_id').val();
+                    d.bdo_id = $('#filter_bdo_id').val();
                     d.from_date = $('#filter_from_date').val();
                     d.to_date = $('#filter_to_date').val();
                 }
@@ -168,16 +329,25 @@
                 { data: 'spend_time', name: 'spend_time', orderable: false },
                 { data: 'travel_time', name: 'travel_time', orderable: false },
                 { 
-                    data: null, 
-                    render: function(data) {
-                        return `${data.start_km ?? '-'} / ${data.end_km ?? '-'} <span class="text-blue-600">(${data.traveled_km ?? 0} KM)</span>`;
-                    }
+                    data: 'start_km', 
+                    name: 'start_km',
+                    render: function(data) { return data ? `<span class="font-bold text-slate-700">${data}</span>` : '-'; }
+                },
+                { 
+                    data: 'end_km', 
+                    name: 'end_km',
+                    render: function(data) { return data ? `<span class="font-bold text-slate-700">${data}</span>` : '-'; }
+                },
+                { 
+                    data: 'traveled_km', 
+                    name: 'traveled_km',
+                    render: function(data) { return data ? `<span class="text-blue-600 font-bold">${data} KM</span>` : '-'; }
                 },
                 { 
                     data: 'status', 
                     render: function(data) {
-                        if (data === '0') return '<span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px]">In Progress</span>';
-                        if (data === '1') return '<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px]">Completed</span>';
+                        if (data === '0') return '<span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-[10px] uppercase font-bold tracking-wider">In Progress</span>';
+                        if (data === '1') return '<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] uppercase font-bold tracking-wider">Completed</span>';
                         return data;
                     }
                 },
@@ -185,14 +355,20 @@
                     data: null, 
                     className: 'text-center',
                     render: function(data) {
-                        let html = '<div class="flex justify-center gap-1">';
                         if (data.start_km_photo_url) {
-                            html += `<button onclick="openImageModal('${data.start_km_photo_url}')" class="w-6 h-6 rounded border border-slate-200 hover:scale-110 transition-transform" title="Punch In"><img src="${data.start_km_photo_url}" class="w-full h-full object-cover"></button>`;
+                            return `<button onclick="openImageModal('${data.start_km_photo_url}')" class="w-8 h-8 rounded-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all shadow-sm overflow-hidden" title="Punch In Photo"><img src="${data.start_km_photo_url}" class="w-full h-full object-cover"></button>`;
                         }
+                        return '-';
+                    }
+                },
+                { 
+                    data: null, 
+                    className: 'text-center',
+                    render: function(data) {
                         if (data.end_km_photo_url) {
-                            html += `<button onclick="openImageModal('${data.end_km_photo_url}')" class="w-6 h-6 rounded border border-slate-200 hover:scale-110 transition-transform" title="Punch Out"><img src="${data.end_km_photo_url}" class="w-full h-full object-cover"></button>`;
+                            return `<button onclick="openImageModal('${data.end_km_photo_url}')" class="w-8 h-8 rounded-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all shadow-sm overflow-hidden" title="Punch Out Photo"><img src="${data.end_km_photo_url}" class="w-full h-full object-cover"></button>`;
                         }
-                        return html + '</div>';
+                        return '-';
                     }
                 },
                 { 
@@ -200,7 +376,7 @@
                     className: 'text-end',
                     render: function(data) {
                         const dataStr = encodeURIComponent(JSON.stringify(data));
-                        return `<button onclick="openMapModal('${dataStr}')" class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ml-auto"><span class="material-symbols-outlined text-[14px]">map</span> Map</button>`;
+                        return `<button onclick="openMapModal('${dataStr}')" class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ml-auto shadow-sm"><span class="material-symbols-outlined text-[14px]">map</span> Map</button>`;
                     }
                 }
             ],
@@ -216,9 +392,12 @@
 
         $('#btn_filter').click(function() { table.draw(); });
         $('#btn_reset').click(function() {
-            $('#filter_user_id, #filter_from_date, #filter_to_date').val('');
-            table.draw();
+            $('#filter_user_id, #filter_from_date, #filter_to_date, #filter_zone_id, #filter_zsm_id, #filter_manager_id, #filter_bdo_id').val('');
+            $('#customSearch').val(''); // Clear custom search too
+            table.search('').draw(); // Clear datatable search
         });
+        
+        $('#customSearch').on('keyup', function() { table.search(this.value).draw(); });
 
         window.openMapModal = (dataEncoded) => {
             const data = JSON.parse(decodeURIComponent(dataEncoded));

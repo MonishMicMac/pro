@@ -21,7 +21,7 @@ class AttendanceController extends Controller
             'in_long'               => 'required',
             'start_km'              => 'required',
             'in_time_vehicle_type'  => 'required|in:1,2,3',
-            'start_km_photo'        => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'start_km_photo'        => 'required|image|mimes:jpeg,png,jpg',
         ]);
 
         if ($validator->fails()) {
@@ -87,7 +87,7 @@ public function punchOut(Request $request)
         'out_long'               => 'required',
         'end_km'                 => 'required',
         'out_time_vehicle_type'  => 'required|in:1,2,3',
-        'end_km_photo'           => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        'end_km_photo'           => 'required|image|mimes:jpeg,png,jpg',
     ]);
 
     if ($validator->fails()) {

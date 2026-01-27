@@ -298,249 +298,273 @@
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 
-    <script>
-        $(document).ready(function() {
-            const token = $('meta[name="csrf-token"]').attr('content');
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': token
-                }
-            });
+<script>
+    $(document).ready(function() {
+        const token = $('meta[name="csrf-token"]').attr('content');
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': token
+            }
+        });
 
-            const table = $('#users-table').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: "{{ route('users.data') }}",
-                createdRow: (row) => $(row).addClass('glass-card'),
-                columns: [{
-                        data: 'id',
-                        orderable: false,
-                        className: 'rounded-l-2xl',
-                        render: (d) =>
-                            `<input class="row-checkbox w-4 h-4 rounded-md border-slate-300 text-blue-600 cursor-pointer" type="checkbox" value="${d}"/>`
-                    },
-                    {
-                        data: 'emp_code',
-                        render: (d) =>
-                            `<span class="font-mono text-slate-400 font-bold">#${d || '---'}</span>`
-                    },
-                    {
-                        data: 'name',
-                        render: (d, t, r) =>
-                            `<div class="flex flex-col"><span class="text-slate-900 font-black">${d}</span><span class="text-[10px] text-slate-400 font-medium">${r.phone || ''}</span></div>`
-                    },
-                    {
-                        data: 'brand_names',
-                        orderable: false,
-                        render: (d) =>
-                            `<div class="flex flex-wrap gap-1">${d ? d.split(',').map(b => `<span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[9px] border border-slate-200">${b.trim()}</span>`).join('') : ''}</div>`
-                    },
-                    {
-                        data: 'email',
-                        render: (d) => `<span class="text-slate-500 font-medium lowercase">${d}</span>`
-                    },
-                    {
-                        data: 'role_name',
-                        className: 'rounded-r-2xl',
-                        render: (d) =>
-                            `<span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] uppercase tracking-widest border border-blue-100">${d || 'User'}</span>`
-                    }
-                ],
-                dom: 'rtp',
-                language: {
-                    paginate: {
-                        previous: '<span class="material-symbols-outlined text-[16px]">arrow_back_ios</span>',
-                        next: '<span class="material-symbols-outlined text-[16px]">arrow_forward_ios</span>'
-                    }
+        const table = $('#users-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: "{{ route('users.data') }}",
+            createdRow: (row) => $(row).addClass('glass-card'),
+            columns: [{
+                    data: 'id',
+                    orderable: false,
+                    className: 'rounded-l-2xl',
+                    render: (d) =>
+                        `<input class="row-checkbox w-4 h-4 rounded-md border-slate-300 text-blue-600 cursor-pointer" type="checkbox" value="${d}"/>`
                 },
-                drawCallback: function() {
-                    $('#table-info').text(`Total Accounts: ${this.api().page.info().recordsTotal}`);
-                    $('#table-pagination').html($('.dataTables_paginate').html());
-                    $('.dataTables_paginate').empty();
-                    $('#table-pagination .paginate_button').on('click', function(e) {
-                        e.preventDefault();
-                        if (!$(this).hasClass('disabled') && !$(this).hasClass('current')) {
-                            if ($(this).hasClass('previous')) table.page('previous').draw(
-                                'page');
-                            else if ($(this).hasClass('next')) table.page('next').draw('page');
-                            else table.page(parseInt($(this).text()) - 1).draw('page');
-                        }
-                    });
+                {
+                    data: 'emp_code',
+                    render: (d) =>
+                        `<span class="font-mono text-slate-400 font-bold">#${d || '---'}</span>`
+                },
+                {
+                    data: 'name',
+                    render: (d, t, r) =>
+                        `<div class="flex flex-col"><span class="text-slate-900 font-black">${d}</span><span class="text-[10px] text-slate-400 font-medium">${r.phone || ''}</span></div>`
+                },
+                {
+                    data: 'brand_names',
+                    orderable: false,
+                    render: (d) =>
+                        `<div class="flex flex-wrap gap-1">${d ? d.split(',').map(b => `<span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[9px] border border-slate-200">${b.trim()}</span>`).join('') : ''}</div>`
+                },
+                {
+                    data: 'email',
+                    render: (d) => `<span class="text-slate-500 font-medium lowercase">${d}</span>`
+                },
+                {
+                    data: 'role_name',
+                    className: 'rounded-r-2xl',
+                    render: (d) =>
+                        `<span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] uppercase tracking-widest border border-blue-100">${d || 'User'}</span>`
                 }
-            });
-
-            $(document).on('change', '#selectAll, .row-checkbox', function() {
-                if ($(this).attr('id') === 'selectAll') $('.row-checkbox').prop('checked', $(this).prop(
-                    'checked'));
-                const count = $('.row-checkbox:checked').length;
-                $('#selected-count').text(count);
-                if (count > 0) {
-                    $('#floating-bar').removeClass('translate-y-20 opacity-0 pointer-events-none').addClass(
-                        'translate-y-0 opacity-100 pointer-events-auto');
-                    count === 1 ? $('#floating-edit').removeClass('hidden') : $('#floating-edit').addClass(
-                        'hidden');
-                } else {
-                    $('#floating-bar').addClass('translate-y-20 opacity-0 pointer-events-none').removeClass(
-                        'translate-y-0 opacity-100 pointer-events-auto');
+            ],
+            dom: 'rtp',
+            language: {
+                paginate: {
+                    previous: '<span class="material-symbols-outlined text-[16px]">arrow_back_ios</span>',
+                    next: '<span class="material-symbols-outlined text-[16px]">arrow_forward_ios</span>'
                 }
-            });
-
-            async function fetchAndPopulate(type, parentId, targetSelector, selectedValue, isCheckbox = false) {
-                if (!parentId || (Array.isArray(parentId) && parentId.length === 0)) return;
-                return new Promise((resolve) => {
-                    $.get("{{ route('users.geodata') }}", {
-                        type: type,
-                        id: parentId
-                    }, function(data) {
-                        let html = isCheckbox ? '' : `<option value="">Select</option>`;
-                        data.forEach(item => {
-                            const name = item.name || item.district_name || item
-                                .city_name || item.area_name || item.pincode;
-                            const id = item.id;
-                            if (isCheckbox) {
-                                const checked = (Array.isArray(selectedValue) &&
-                                    selectedValue.map(String).includes(String(id))
-                                ) ? 'checked' : '';
-                                html += `<label class="check-item">
-                                        <input type="checkbox" name="${type === 'areas' ? 'area_id[]' : 'pincode_id[]'}" 
-                                               value="${id}" ${checked} class="${type === 'areas' ? 'area-check' : 'pincode-check'} w-4 h-4 rounded text-blue-600">
-                                        <span class="text-[11px]">${name}</span>
-                                     </label>`;
-                            } else {
-                                html += `<option value="${id}">${name}</option>`;
-                            }
-                        });
-                        $(targetSelector).html(html || (isCheckbox ?
-                            '<p class="text-[10px] text-slate-400 p-2 italic">No data found</p>' :
-                            ''));
-                        if (!isCheckbox && selectedValue) $(targetSelector).val(selectedValue);
-                        resolve();
-                    });
+            },
+            drawCallback: function() {
+                $('#table-info').text(`Total Accounts: ${this.api().page.info().recordsTotal}`);
+                $('#table-pagination').html($('.dataTables_paginate').html());
+                $('.dataTables_paginate').empty();
+                $('#table-pagination .paginate_button').on('click', function(e) {
+                    e.preventDefault();
+                    if (!$(this).hasClass('disabled') && !$(this).hasClass('current')) {
+                        if ($(this).hasClass('previous')) table.page('previous').draw(
+                            'page');
+                        else if ($(this).hasClass('next')) table.page('next').draw('page');
+                        else table.page(parseInt($(this).text()) - 1).draw('page');
+                    }
                 });
             }
+        });
 
-            $('#floating-edit').click(function() {
-                const id = $('.row-checkbox:checked').val();
-                let editUrl = "{{ route('users.edit', ':id') }}".replace(':id', id);
-                $.get(editUrl, async function(data) {
-                    $('#userForm')[0].reset();
-                    $('#user_id').val(data.user.id);
-                    $('#user_name').val(data.user.name);
-                    $('#user_email').val(data.user.email);
-                    $('#user_phone').val(data.user.phone);
-                    $('#user_address').val(data.user.address);
-                    $('#user_emp_code').val(data.user.emp_code);
-                    $('#user_role').val(data.role).trigger('change');
-                    $('#method').val('PUT');
-                    $('#modalTitle').text('Update Account');
-                    $('.brand-check').prop('checked', false);
-                    if (data.brand_ids) data.brand_ids.forEach(bid => $(
-                        `.brand-check[value="${bid}"]`).prop('checked', true));
+        $(document).on('change', '#selectAll, .row-checkbox', function() {
+            if ($(this).attr('id') === 'selectAll') $('.row-checkbox').prop('checked', $(this).prop(
+                'checked'));
+            const count = $('.row-checkbox:checked').length;
+            $('#selected-count').text(count);
+            if (count > 0) {
+                $('#floating-bar').removeClass('translate-y-20 opacity-0 pointer-events-none').addClass(
+                    'translate-y-0 opacity-100 pointer-events-auto');
+                count === 1 ? $('#floating-edit').removeClass('hidden') : $('#floating-edit').addClass(
+                    'hidden');
+            } else {
+                $('#floating-bar').addClass('translate-y-20 opacity-0 pointer-events-none').removeClass(
+                    'translate-y-0 opacity-100 pointer-events-auto');
+            }
+        });
 
-                    if (data.user.zone_id) {
-                        $('#user_zone').val(data.user.zone_id);
-                        await fetchAndPopulate('states', data.user.zone_id, '#user_state', data
-                            .user.state_id);
-                        if (data.user.state_id) {
-                            await fetchAndPopulate('districts', data.user.state_id,
-                                '#user_district', data.user.district_id);
-                            if (data.user.district_id) {
-                                await fetchAndPopulate('cities', data.user.district_id,
-                                    '#user_city', data.user.city_id);
-                                if (data.user.city_id) {
-                                    await fetchAndPopulate('areas', data.user.city_id,
-                                        '#area_checkbox_list', data.area_ids, true);
-                                    if (data.area_ids && data.area_ids.length > 0) {
-                                        await fetchAndPopulate('pincodes', data.area_ids,
-                                            '#pincode_checkbox_list', data.pincode_ids, true
-                                        );
-                                    }
+        async function fetchAndPopulate(type, parentId, targetSelector, selectedValue, isCheckbox = false) {
+            if (!parentId || (Array.isArray(parentId) && parentId.length === 0)) return;
+            return new Promise((resolve) => {
+                $.get("{{ route('users.geodata') }}", {
+                    type: type,
+                    id: parentId
+                }, function(data) {
+                    let html = isCheckbox ? '' : `<option value="">Select</option>`;
+                    data.forEach(item => {
+                        const name = item.name || item.district_name || item
+                            .city_name || item.area_name || item.pincode;
+                        const id = item.id;
+                        if (isCheckbox) {
+                            const checked = (Array.isArray(selectedValue) &&
+                                selectedValue.map(String).includes(String(id))
+                            ) ? 'checked' : '';
+                            html += `<label class="check-item">
+                                    <input type="checkbox" name="${type === 'areas' ? 'area_id[]' : 'pincode_id[]'}" 
+                                           value="${id}" ${checked} class="${type === 'areas' ? 'area-check' : 'pincode-check'} w-4 h-4 rounded text-blue-600">
+                                    <span class="text-[11px]">${name}</span>
+                                 </label>`;
+                        } else {
+                            html += `<option value="${id}">${name}</option>`;
+                        }
+                    });
+                    $(targetSelector).html(html || (isCheckbox ?
+                        '<p class="text-[10px] text-slate-400 p-2 italic">No data found</p>' :
+                        ''));
+                    if (!isCheckbox && selectedValue) $(targetSelector).val(selectedValue);
+                    resolve();
+                });
+            });
+        }
+
+        $('#floating-edit').click(function() {
+            const id = $('.row-checkbox:checked').val();
+            let editUrl = "{{ route('users.edit', ':id') }}".replace(':id', id);
+            $.get(editUrl, async function(data) {
+                $('#userForm')[0].reset();
+                $('#user_id').val(data.user.id);
+                $('#user_name').val(data.user.name);
+                $('#user_email').val(data.user.email);
+                $('#user_phone').val(data.user.phone);
+                $('#user_address').val(data.user.address);
+                $('#user_emp_code').val(data.user.emp_code);
+                $('#user_role').val(data.role).trigger('change');
+                $('#method').val('PUT');
+                $('#modalTitle').text('Update Account');
+                $('.brand-check').prop('checked', false);
+                if (data.brand_ids) data.brand_ids.forEach(bid => $(
+                    `.brand-check[value="${bid}"]`).prop('checked', true));
+
+                if (data.user.zone_id) {
+                    $('#user_zone').val(data.user.zone_id);
+                    await fetchAndPopulate('states', data.user.zone_id, '#user_state', data
+                        .user.state_id);
+                    if (data.user.state_id) {
+                        await fetchAndPopulate('districts', data.user.state_id,
+                            '#user_district', data.user.district_id);
+                        if (data.user.district_id) {
+                            await fetchAndPopulate('cities', data.user.district_id,
+                                '#user_city', data.user.city_id);
+                            if (data.user.city_id) {
+                                await fetchAndPopulate('areas', data.user.city_id,
+                                    '#area_checkbox_list', data.area_ids, true);
+                                if (data.area_ids && data.area_ids.length > 0) {
+                                    await fetchAndPopulate('pincodes', data.area_ids,
+                                        '#pincode_checkbox_list', data.pincode_ids, true
+                                    );
                                 }
                             }
                         }
                     }
-                    toggleModal('userModal', true);
-                });
-            });
-
-            $('#user_zone').change(function() {
-                fetchAndPopulate('states', $(this).val(), '#user_state');
-                $('#user_district, #user_city').html('<option value="">Select</option>');
-                $('#area_checkbox_list, #pincode_checkbox_list').html(
-                    '<p class="text-[10px] text-slate-400 p-2 italic">Select above first...</p>');
-            });
-            $('#user_state').change(function() {
-                fetchAndPopulate('districts', $(this).val(), '#user_district');
-                $('#user_city').html('<option value="">Select</option>');
-            });
-            $('#user_district').change(function() {
-                fetchAndPopulate('cities', $(this).val(), '#user_city');
-            });
-            $('#user_city').change(function() {
-                fetchAndPopulate('areas', $(this).val(), '#area_checkbox_list', null, true);
-            });
-            $(document).on('change', '.area-check', function() {
-                const ids = $('.area-check:checked').map(function() {
-                    return $(this).val();
-                }).get();
-                fetchAndPopulate('pincodes', ids, '#pincode_checkbox_list', null, true);
-            });
-
-            $('#user_role').on('change', function() {
-                $(this).val() ? $('#geo-section').slideDown() : $('#geo-section').slideUp();
-            });
-            $('#customSearch').on('keyup', function() {
-                table.search(this.value).draw();
-            });
-
-            window.toggleModal = (id, show) => {
-                const el = $('#' + id),
-                    content = el.find('.modal-content'),
-                    backdrop = $('#modalBackdrop');
-                if (show) {
-                    el.removeClass('modal-hidden').addClass('modal-visible');
-                    backdrop.removeClass('hidden');
-                    setTimeout(() => {
-                        backdrop.removeClass('opacity-0').addClass('opacity-100');
-                        // translate-y-0 brings it back into view precisely where anchored
-                        content.removeClass('-translate-y-80 opacity-0').addClass(
-                            'translate-y-0 opacity-100');
-                    }, 10);
-                } else {
-                    content.removeClass('translate-y-0 opacity-100').addClass('-translate-y-80 opacity-0');
-                    backdrop.removeClass('opacity-100').addClass('opacity-0');
-                    setTimeout(() => {
-                        el.addClass('modal-hidden').removeClass('modal-visible');
-                        backdrop.addClass('hidden');
-                    }, 300);
                 }
-            };
-
-            window.openAddModal = () => {
-                $('#userForm')[0].reset();
-                $('#user_id').val('');
-                $('#method').val('POST');
-                $('#geo-section').hide();
-                $('#modalTitle').text('New Account');
                 toggleModal('userModal', true);
-            };
-
-            $('#userForm').submit(function(e) {
-                e.preventDefault();
-                const id = $('#user_id').val();
-                let url = id ? "{{ route('users.update', ':id') }}".replace(':id', id) :
-                    "{{ route('users.store') }}";
-                $.ajax({
-                    url: url,
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    success: () => {
-                        toggleModal('userModal', false);
-                        table.draw(false);
-                        Swal.fire('Success', 'Action completed', 'success');
-                    }
-                });
             });
         });
-    </script>
+
+        $('#user_zone').change(function() {
+            fetchAndPopulate('states', $(this).val(), '#user_state');
+            $('#user_district, #user_city').html('<option value="">Select</option>');
+            $('#area_checkbox_list, #pincode_checkbox_list').html(
+                '<p class="text-[10px] text-slate-400 p-2 italic">Select above first...</p>');
+        });
+        $('#user_state').change(function() {
+            fetchAndPopulate('districts', $(this).val(), '#user_district');
+            $('#user_city').html('<option value="">Select</option>');
+        });
+        $('#user_district').change(function() {
+            fetchAndPopulate('cities', $(this).val(), '#user_city');
+        });
+        $('#user_city').change(function() {
+            fetchAndPopulate('areas', $(this).val(), '#area_checkbox_list', null, true);
+        });
+        $(document).on('change', '.area-check', function() {
+            const ids = $('.area-check:checked').map(function() {
+                return $(this).val();
+            }).get();
+            fetchAndPopulate('pincodes', ids, '#pincode_checkbox_list', null, true);
+        });
+
+        $('#user_role').on('change', function() {
+            $(this).val() ? $('#geo-section').slideDown() : $('#geo-section').slideUp();
+        });
+        $('#customSearch').on('keyup', function() {
+            table.search(this.value).draw();
+        });
+
+        window.toggleModal = (id, show) => {
+            const el = $('#' + id),
+                content = el.find('.modal-content'),
+                backdrop = $('#modalBackdrop');
+            if (show) {
+                el.removeClass('modal-hidden').addClass('modal-visible');
+                backdrop.removeClass('hidden');
+                setTimeout(() => {
+                    backdrop.removeClass('opacity-0').addClass('opacity-100');
+                    content.removeClass('-translate-y-80 opacity-0').addClass(
+                        'translate-y-0 opacity-100');
+                }, 10);
+            } else {
+                content.removeClass('translate-y-0 opacity-100').addClass('-translate-y-80 opacity-0');
+                backdrop.removeClass('opacity-100').addClass('opacity-0');
+                setTimeout(() => {
+                    el.addClass('modal-hidden').removeClass('modal-visible');
+                    backdrop.addClass('hidden');
+                }, 300);
+            }
+        };
+
+        window.openAddModal = () => {
+            $('#userForm')[0].reset();
+            $('#user_id').val('');
+            $('#method').val('POST');
+            $('#geo-section').hide();
+            $('#modalTitle').text('New Account');
+            toggleModal('userModal', true);
+        };
+
+        // MODIFIED SUBMIT HANDLER WITH ERROR VALIDATION
+        $('#userForm').submit(function(e) {
+            e.preventDefault();
+            const id = $('#user_id').val();
+            let url = id ? "{{ route('users.update', ':id') }}".replace(':id', id) :
+                "{{ route('users.store') }}";
+            
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: $(this).serialize(),
+                success: () => {
+                    toggleModal('userModal', false);
+                    table.draw(false);
+                    Swal.fire('Success', 'Action completed', 'success');
+                },
+                error: function(xhr) {
+                    let errorMessage = 'Something went wrong.';
+                    
+                    // Check if it's a validation error (Status 422)
+                    if (xhr.status === 422) {
+                        let errors = xhr.responseJSON.errors;
+                        errorMessage = '';
+                        // Loop through the errors and list them
+                        $.each(errors, function(key, value) {
+                            errorMessage += value[0] + '<br>'; 
+                        });
+                        
+                        // Show validation errors
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Validation Error',
+                            html: errorMessage, // Use html to render line breaks
+                        });
+                    } else {
+                        // Handle generic server errors (Status 500, etc.)
+                        Swal.fire('Error', xhr.responseJSON.message || errorMessage, 'error');
+                    }
+                }
+            });
+        });
+    });
+</script>
 @endsection

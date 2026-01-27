@@ -17,6 +17,7 @@ use App\Http\Controllers\BdoJointWorkReportController;
 use App\Http\Controllers\BdmCallReportController;
 use App\Http\Controllers\AssignLeadsController;
 use App\Http\Controllers\TelecallerController;
+use App\Http\Controllers\BdoTargetController;
 
 // Public Routes
 Route::get('login', [LoginController::class, 'index'])->name('login');
@@ -117,7 +118,7 @@ Route::middleware(['auth'])->group(function () {
             'fabricators/{id}/show',
             [App\Http\Controllers\Master\FabricatorController::class, 'show']
         )->name('fabricators.show');
-   Route::get(
+        Route::get(
             'fabricators/{id}/stock',
             [App\Http\Controllers\Master\FabricatorController::class, 'stockData']
         )->name('fabricators.stockData');
@@ -136,6 +137,10 @@ Route::middleware(['auth'])->group(function () {
             Route::post('bulk-delete', [App\Http\Controllers\Master\UserMappingController::class, 'bulkDelete'])->name('bulkDelete');
             Route::get('{id}/edit', [App\Http\Controllers\Master\UserMappingController::class, 'edit'])->name('edit');
             Route::delete('{id}', [App\Http\Controllers\Master\UserMappingController::class, 'destroy'])->name('destroy');
+            Route::get('tree-data', [App\Http\Controllers\Master\UserMappingController::class, 'getTreeData'])->name('treeData');
+            Route::get('get-mapped-users', [App\Http\Controllers\Master\UserMappingController::class, 'getMappedUsers'])->name('getMappedUsers');
+
+
         });
     });
 
@@ -196,6 +201,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('attendance', [App\Http\Controllers\AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('attendance/data', [App\Http\Controllers\AttendanceController::class, 'data'])->name('attendance.data');
+    Route::get('attendance/get-locations', [App\Http\Controllers\AttendanceController::class, 'getLocationData'])->name('attendance.get-locations');
 });
 
 //Fabricator WEB
@@ -241,7 +247,9 @@ Route::resource('fabricator-projections', App\Http\Controllers\FabricatorProject
 Route::get('bdm-field-activity', [App\Http\Controllers\LeadVisitBdmController::class, 'fieldActivity'])->name('bdm.field-activity');
 Route::get('bdm-visit-report', [App\Http\Controllers\LeadVisitBdmController::class, 'report'])->name('bdm.visit-report');
 Route::get('bdm-visit-report/data', [App\Http\Controllers\LeadVisitBdmController::class, 'reportData'])->name('bdm.visit-report.data');
-
+Route::get('bdm-visit-report/get-locations', [App\Http\Controllers\LeadVisitBdmController::class, 'getLocations'])
+    ->name('bdm.get-locations');
+    
 Route::get('fabricator-report', [App\Http\Controllers\FabricatorReportController::class, 'index'])->name('fabricator.report');
 Route::get('fabricator-report/summary', [App\Http\Controllers\FabricatorReportController::class, 'summaryData'])->name('fabricator.report.summary');
 Route::get('fabricator-report/location-data', [App\Http\Controllers\FabricatorReportController::class, 'getHierarchicalData'])->name('fabricator.report.location-data');
@@ -278,13 +286,20 @@ Route::get('bdo-performance-report/data', [App\Http\Controllers\BdoPerformanceRe
 
 Route::get('prospect-report', [App\Http\Controllers\ProspectController::class, 'index'])
     ->name('prospect.report');
-    Route::get('get-location-data', [App\Http\Controllers\ProspectController::class, 'getLocationData'])->name('get.location.data');
+Route::get('get-location-datas', [App\Http\Controllers\ProspectController::class, 'getLocationData'])->name('get.location.data');
 
 Route::get('prospect-report/data', [App\Http\Controllers\ProspectController::class, 'data'])
     ->name('prospect.report.data');
 
-Route::get('bdo-targets/data', [App\Http\Controllers\BdoTargetController::class, 'getData'])->name('bdo-targets.data');
-Route::resource('bdo-targets', App\Http\Controllers\BdoTargetController::class);
+// 1. Data Route (Specific)
+Route::get('bdo-targets/data', [BdoTargetController::class, 'getData'])->name('bdo-targets.data');
+
+// 2. Cascading Route (Specific - MUST be before resource)
+Route::get('bdo-targets/get-locations', [BdoTargetController::class, 'getLocationData'])->name('bdo-targets.get-locations');
+
+// 3. Resource Route (Wildcard - Must be last)
+Route::resource('bdo-targets', BdoTargetController::class);
+
 
 Route::prefix('tourplan-report')->name('tour-plans.')->group(function () {
 
@@ -305,13 +320,15 @@ Route::prefix('tourplan-report')->name('tour-plans.')->group(function () {
     Route::get('/details', [TourPlanController::class, 'getDetails'])
         ->name('details')
         ->middleware(['permission:tourplan-report.view']);
+
+    Route::get('/get-locations', [TourPlanController::class, 'getLocationData'])->name('get-locations');
 });
 
 Route::prefix('bdm-tourplan-report')->name('bdm-tour-plans.')->group(function () {
 
     Route::get('/', [BdmTourPlanController::class, 'index'])
         ->name('index')
-        ->middleware(['permission:tourplan-report.view']); // Or create a specific bdm permission
+        ->middleware(['permission:tourplan-report.view']);
 
     Route::get('/data', [BdmTourPlanController::class, 'getData'])
         ->name('data')
@@ -320,6 +337,11 @@ Route::prefix('bdm-tourplan-report')->name('bdm-tour-plans.')->group(function ()
     Route::get('/details', [BdmTourPlanController::class, 'getDetails'])
         ->name('details')
         ->middleware(['permission:tourplan-report.view']);
+
+    // --- ADD THIS MISSING ROUTE ---
+    Route::get('/get-locations', [BdmTourPlanController::class, 'getLocations'])
+        ->name('get-locations')
+        ->middleware(['permission:tourplan-report.view']);
 });
 
 // Prefix: /bdo-consolidate-report
@@ -327,10 +349,15 @@ Route::prefix('bdo-consolidate-report')->name('bdo-consolidate.')->group(functio
 
     Route::get('/', [BdoConsolidateReportController::class, 'index'])
         ->name('index')
-        ->middleware(['permission:tourplan-report.view']); // Or create specific permission
+        ->middleware(['permission:tourplan-report.view']);
 
     Route::get('/data', [BdoConsolidateReportController::class, 'getData'])
         ->name('data')
+        ->middleware(['permission:tourplan-report.view']);
+
+    // --- ADD THIS MISSING ROUTE ---
+    Route::get('/get-locations', [BdoConsolidateReportController::class, 'getLocations'])
+        ->name('get-locations')
         ->middleware(['permission:tourplan-report.view']);
 });
 
@@ -343,22 +370,40 @@ Route::prefix('bdm-consolidate-report')->name('bdm-consolidate.')->group(functio
     Route::get('/data', [BdmConsolidateReportController::class, 'getData'])
         ->name('data')
         ->middleware(['permission:tourplan-report.view']);
-});
 
+    // --- ADD THIS MISSING ROUTE ---
+    Route::get('/get-locations', [BdmConsolidateReportController::class, 'getLocations'])
+        ->name('get-locations')
+        ->middleware(['permission:tourplan-report.view']);
+});
 Route::prefix('bdo-joint-visit-report')->name('bdo-joint-visits.')->group(function () {
 
     Route::get('/', [BdoJointWorkReportController::class, 'index'])
         ->name('index')
-        ->middleware(['permission:tourplan-report.view']); // Use appropriate permission
+        ->middleware(['permission:tourplan-report.view']);
 
     Route::get('/data', [BdoJointWorkReportController::class, 'getData'])
         ->name('data')
         ->middleware(['permission:tourplan-report.view']);
+
+    // --- ADD THIS MISSING ROUTE ---
+    Route::get('/get-locations', [BdoJointWorkReportController::class, 'getLocations'])
+        ->name('get-locations')
+        ->middleware(['permission:tourplan-report.view']);
 });
 
-Route::get('bdm-call-reports', [BdmCallReportController::class, 'index'])->name('bdm-call-reports.index');
-Route::get('bdm-call-reports/data', [BdmCallReportController::class, 'getData'])->name('bdm-call-reports.data');
+Route::prefix('bdm-call-reports')->name('bdm-call-reports.')->group(function () {
+    
+    Route::get('/', [BdmCallReportController::class, 'index'])
+        ->name('index');
 
+    Route::get('/data', [BdmCallReportController::class, 'getData'])
+        ->name('data');
+
+    // --- ADD THIS MISSING ROUTE ---
+    Route::get('/get-locations', [BdmCallReportController::class, 'getLocations'])
+        ->name('get-locations');
+});
 Route::get('/assign-leads', [AssignLeadsController::class, 'index'])->name('assign-leads.index');
 Route::post('/assign-leads/update', [AssignLeadsController::class, 'assignTelecaller'])->name('assign-leads.update');
 Route::get('/get-telecallers-by-zone', [AssignLeadsController::class, 'getTelecallersByZone'])->name('get.telecallers.by.zone');

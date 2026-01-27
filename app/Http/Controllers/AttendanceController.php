@@ -16,25 +16,75 @@ class AttendanceController extends Controller
     public function index()
     {
         $users = User::orderBy('name')->get();
-        return view('attendance.index', compact('users'));
+        // Only load Zones initially, relying on AJAX for others to match Lead Report behavior
+        $zones = \App\Models\Zone::orderBy('name')->where('action', '0')->get();
+
+        return view('attendance.index', compact('users', 'zones'));
     }
 
-    /**
-     * Process datatables ajax request.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function data(Request $request)
     {
         if ($request->ajax()) {
+            $authUser = \Illuminate\Support\Facades\Auth::user();
+
             $query = UserAttendance::leftJoin('users', 'users_attendances.user_id', '=', 'users.id')
                 ->select([
                     'users_attendances.*',
-                    'users.name as user_name'
+                    'users.name as user_name',
+                    'users.zone_id'
                 ]);
 
+            // --- RBAC: Role-Based Access Control ---
+            if ($authUser->hasRole('ZSM')) {
+                // ZSM sees themselves + their BDMs + their BDOs
+                $mappingIds = \App\Models\UserMapping::where('zsm_id', $authUser->id)->get(['bdm_id', 'bdo_id']);
+                $subIds = $mappingIds->pluck('bdm_id')->merge($mappingIds->pluck('bdo_id'))->unique()->filter()->toArray();
+                $allowedUsers = array_merge([$authUser->id], $subIds);
+                $query->whereIn('users_attendances.user_id', $allowedUsers);
+            } elseif ($authUser->hasRole('BDM')) {
+                // BDM sees themselves + their BDOs
+                $subIds = \App\Models\UserMapping::where('bdm_id', $authUser->id)->pluck('bdo_id')->unique()->filter()->toArray();
+                $allowedUsers = array_merge([$authUser->id], $subIds);
+                $query->whereIn('users_attendances.user_id', $allowedUsers);
+            } elseif ($authUser->hasRole('BDO')) {
+                // BDO sees only themselves
+                $query->where('users_attendances.user_id', $authUser->id);
+            } else {
+                 // For Admins or others, fallback to Zone restriction if assigned
+                 if ($authUser->zone_id) {
+                    $query->where('users.zone_id', $authUser->zone_id);
+                 }
+            }
+
+            // --- Manual Filters ---
             if ($request->filled('user_id')) {
                 $query->where('users_attendances.user_id', $request->user_id);
+            }
+
+            if ($request->filled('zone_id')) {
+                $query->where('users.zone_id', $request->zone_id); // Filter users belonging to zone
+            }
+
+            // Hierarchy Filters (ZSM -> Manager -> BDO)
+            if ($request->filled('zsm_id')) {
+                $zsmId = $request->zsm_id;
+                // Find all subordinates (BDMs and BDOs) under this ZSM
+                $mappingIds = \App\Models\UserMapping::where('zsm_id', $zsmId)->get(['bdm_id', 'bdo_id']);
+                $subIds = $mappingIds->pluck('bdm_id')->merge($mappingIds->pluck('bdo_id'))->unique()->filter()->toArray();
+                // Show attendance for ZSM + their hierarchy
+                $query->whereIn('users_attendances.user_id', array_merge([$zsmId], $subIds));
+            }
+
+            if ($request->filled('manager_id')) {
+                $managerId = $request->manager_id;
+                // Find all BDOs under this Manager (BDM)
+                $subIds = \App\Models\UserMapping::where('bdm_id', $managerId)->pluck('bdo_id')->unique()->filter()->toArray();
+                // Show attendance for Manager + their BDOs
+                $query->whereIn('users_attendances.user_id', array_merge([$managerId], $subIds));
+            }
+
+            if ($request->filled('bdo_id')) {
+                $query->where('users_attendances.user_id', $request->bdo_id);
             }
 
             if ($request->filled('from_date')) {

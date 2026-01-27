@@ -56,7 +56,7 @@ class Fabricator extends Authenticatable
         'credit_limit',
         'credit_days',
 
-  'net',
+        'net',
         // CONTACT
         'contact_person',
         'sales_person_id',
@@ -72,7 +72,9 @@ class Fabricator extends Authenticatable
         'latitude',
         'longitude',
         'created_by',
-        'noHashPassword'
+        'noHashPassword',
+        'total_value',
+        'final_rate_per_sqft'
     ];
 
 

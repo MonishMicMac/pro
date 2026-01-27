@@ -187,8 +187,26 @@ class DigitalMarketingLeadController extends Controller
         $lead = DigitalMarketingLead::findOrFail($id);
 
         // Update only the fields provided in the request
+        // Update only the fields provided in the request
         $data = $request->all();
         $data['updated_by'] = Auth::id(); // ✅ logged in user
+
+        // Clear reasons if not relevant to the new stage
+        if (isset($data['stage']) && $data['stage'] != 2) { // 2 = Disqualified
+            $data['disqualified_reason'] = null;
+        }
+        if (isset($data['stage']) && $data['stage'] != 7) { // 7 = RNR
+            $data['rnr_reason'] = null;
+        }
+
+        // Check for redundant RNR reason (Optimization: Don't show in history if unchanged)
+        $historyRnrReason = $data['rnr_reason'] ?? $lead->rnr_reason;
+        if ($lead->stage == 7 && isset($data['stage']) && $data['stage'] == 7 && $lead->rnr_reason == $historyRnrReason) {
+             $historyRnrReason = null;
+        }
+        // Ensure proper null handling for cleared reasons
+        if(isset($data['stage']) && $data['stage'] != 7) $historyRnrReason = null;
+
 
         $lead->update($data);
         LeadHistory::create([
@@ -208,7 +226,7 @@ class DigitalMarketingLeadController extends Controller
             'potential_follow_up_date' => $lead->potential_follow_up_date,
             'potential_follow_up_time' => $lead->potential_follow_up_time,
             'disqualified_reason'      => $lead->disqualified_reason,
-            'rnr_reason'               => $lead->rnr_reason,
+            'rnr_reason'               => $historyRnrReason,
         ]);
         if ($request->filled('assigned_to')) {
 
@@ -253,17 +271,26 @@ class DigitalMarketingLeadController extends Controller
         return response()->json(['success' => 'Bulk deletion successful']);
     }
 
-    public function history($id)
+    public function history(Request $request, $id)
     {
         $lead = DigitalMarketingLead::findOrFail($id);
-        $history = LeadHistory::with('user')
-            ->where('lead_id', $id)
-            ->latest()
-            ->get();
+        
+        $query = LeadHistory::with('user')
+            ->where('lead_id', $id);
+
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
+        }
+
+        $history = $query->latest()->get();
 
         // Fetch helper data for ID-to-Name translation
         $buildingTypes = \App\Helpers\LeadHelper::getBuildingTypes();
         $leadStages    = \App\Helpers\LeadHelper::getLeadStages();
+        $leadStages[7] = 'RNR'; // ID 7 fix
         $zones         = Zone::pluck('name', 'id');
         $buildingStatuses = BuildingStatus::pluck('name', 'id');
         $customerTypes = CustomerType::pluck('name', 'id');

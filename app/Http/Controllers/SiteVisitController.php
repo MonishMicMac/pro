@@ -51,7 +51,7 @@ class SiteVisitController extends Controller
         return view('site_visits.index', compact('users', 'zones', 'states', 'districts', 'cities'));
     }
 
-/**
+    /**
      * AJAX: Get Cascading Location Data & Users based on Zone
      */
     public function getLocationData(Request $request)
@@ -96,7 +96,7 @@ class SiteVisitController extends Controller
             if ($authUser->district_id) $query->where('users.district_id', $authUser->district_id);
 
             // --- MANUAL FILTERS ---
-            
+
             // Location
             if (!$authUser->zone_id && $request->filled('zone_id')) {
                 $query->where('users.zone_id', $request->zone_id);
@@ -152,5 +152,122 @@ class SiteVisitController extends Controller
                 ->rawColumns(['image', 'map_data'])
                 ->make(true);
         }
+    }
+
+    /**
+     * Display the site visit status report.
+     */
+    public function report()
+    {
+        $authUser = Auth::user();
+
+        $zones = Zone::where('action', '0')
+            ->when($authUser->zone_id, fn($q) => $q->where('id', $authUser->zone_id))
+            ->orderBy('name')
+            ->get();
+
+        $users = User::where('action', '0')->orderBy('name')->get();
+
+        return view('site_visits.report', compact('zones', 'users'));
+    }
+
+    /**
+     * Process site visit report datatables ajax request.
+     */
+    public function reportData(Request $request)
+    {
+        $fromDate = $request->from_date;
+        $toDate = $request->to_date;
+        $userId = $request->user_id;
+        $statusFilter = $request->status; // 'Visited', 'Pending'
+        $typeFilter = $request->type; // 'planned', 'unplanned'
+        $visitTypeFilter = $request->visit_type; // 1, 2, 3
+        $foodAllowanceFilter = $request->food_allowance; // 1, 2
+        $workTypeFilter = $request->work_type; // 'Individual', 'Joint Work'
+
+        $query = LeadVisit::with(['user', 'lead', 'account', 'fabricator'])
+            ->select('lead_visits.*');
+
+        // Apply Filters
+        if ($fromDate && $toDate) {
+            $query->whereBetween('schedule_date', [$fromDate, $toDate]);
+        } elseif ($fromDate) {
+            $query->whereDate('schedule_date', '>=', $fromDate);
+        } elseif ($toDate) {
+            $query->whereDate('schedule_date', '<=', $toDate);
+        } else {
+            // Default to today if no date range is provided
+            $query->whereDate('schedule_date', Carbon::today()->toDateString());
+        }
+
+        if ($userId) {
+            $query->where('user_id', $userId);
+        }
+
+        if ($typeFilter) {
+            $query->where('type', $typeFilter);
+        }
+
+        if ($visitTypeFilter) {
+            $query->where('visit_type', $visitTypeFilter);
+        }
+
+        if ($foodAllowanceFilter) {
+            $query->where('food_allowance', $foodAllowanceFilter);
+        }
+
+        if ($workTypeFilter) {
+            $query->where('work_type', $workTypeFilter);
+        }
+
+        if ($statusFilter) {
+            if ($statusFilter === 'Visited') {
+                $query->whereNotNull('intime_time');
+            } elseif ($statusFilter === 'Pending') {
+                $query->whereNull('intime_time');
+            }
+        }
+
+        return DataTables::of($query)
+            ->addColumn('date', function ($row) {
+                return $row->schedule_date;
+            })
+            ->addColumn('entity_name', function ($row) {
+                if ($row->visit_type == 1) {
+                    return $row->account->name ?? 'N/A';
+                } elseif ($row->visit_type == 2) {
+                    return $row->lead->site_owner_name ?? 'N/A';
+                } elseif ($row->visit_type == 3) {
+                    return $row->fabricator->name ?? 'N/A';
+                }
+                return 'N/A';
+            })
+            ->editColumn('user_name', function ($row) {
+                return $row->user ? $row->user->name : 'N/A';
+            })
+            ->addColumn('category', function ($row) {
+                $categories = [1 => 'Account', 2 => 'Lead', 3 => 'Fabricator'];
+                return $categories[$row->visit_type] ?? 'N/A';
+            })
+            ->addColumn('type_label', function ($row) {
+                return ucfirst($row->type);
+            })
+            ->addColumn('status_label', function ($row) {
+                return $row->intime_time ? 'Visited' : 'Pending';
+            })
+            ->addColumn('check_in', function ($row) {
+                return $row->intime_time ? Carbon::parse($row->intime_time)->format('h:i A') : '-';
+            })
+            ->addColumn('check_out', function ($row) {
+                return $row->out_time ? Carbon::parse($row->out_time)->format('h:i A') : '-';
+            })
+            ->addColumn('food_label', function ($row) {
+                $labels = [1 => 'Local Station', 2 => 'Out Station'];
+                return $labels[$row->food_allowance] ?? '-';
+            })
+            ->addColumn('image_url', function ($row) {
+                return $row->image ? asset('storage/' . $row->image) : null;
+            })
+            ->make(true);
     }
 }

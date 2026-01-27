@@ -23,12 +23,12 @@ class TelecallerController extends Controller
         $stages[0] = 'New Lead';
         $stages[7] = 'RNR';
 
-        // 2. Prepare the Query for Statistics
-        $query = DigitalMarketingLead::query();
+        // 2. Prepare the Query for Statistics using LeadHistory
+        $query = \App\Models\LeadHistory::query();
 
         // --- Apply Filters ---
 
-        // Filter by Date Range (Created Date or Assigned Date? Usually Created Date for management reports)
+        // Filter by Date Range (History Creation Date)
         if ($request->filled('from_date')) {
             $query->whereDate('created_at', '>=', $request->from_date);
         }
@@ -38,20 +38,19 @@ class TelecallerController extends Controller
 
         // Filter by specific Telecaller if selected
         if ($request->filled('telecaller_id')) {
-            $query->where('telecaller_id', $request->telecaller_id);
+            $query->where('updated_by', $request->telecaller_id);
         } else {
-            // Only show leads that HAVE a telecaller assigned
-            $query->whereNotNull('telecaller_id');
+            // Only show histories that have an updater
+            $query->whereNotNull('updated_by');
         }
 
         // 3. Fetch Aggregate Data
-        // Group by Telecaller and Stage to get counts
-        $stats = $query->select('telecaller_id', 'stage', DB::raw('count(*) as total'))
-            ->groupBy('telecaller_id', 'stage')
+        // Group by Telecaller (updated_by) and Stage to get counts
+        $stats = $query->select('updated_by as telecaller_id', 'stage', DB::raw('count(*) as total'))
+            ->groupBy('updated_by', 'stage')
             ->get();
 
         // 4. Fetch Telecaller Names for Display
-        // We only need users who actually appear in the stats or are marked as telecallers
         $telecallerIds = $stats->pluck('telecaller_id')->unique();
         $telecallers = User::whereIn('id', $telecallerIds)->pluck('name', 'id');
         
@@ -61,7 +60,6 @@ class TelecallerController extends Controller
         })->get();
 
         // 5. Structure Data for the View
-        // Format: [ telecaller_id => [ 'name' => 'John', 'counts' => [ stage_id => count ] ] ]
         $reportData = [];
 
         foreach ($stats as $row) {

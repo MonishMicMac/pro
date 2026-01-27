@@ -51,9 +51,11 @@ class LeadController extends Controller
                     'zsms'   => User::role('ZSM')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
                     'bdms'   => User::role('BDM')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
                     'bdos'   => User::role('BDO')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+                    'telecallers'   => User::role('Telecaller')->where('zone_id', $id)->orderBy('name')->get(['id', 'name']),
+
                 ]);
             case 'state':
-                return District::where('state_id', (string) $id)->orderBy('district_name')->get(['id', 'district_name as name']);
+                return District::where('state_id', $id)->orderBy('district_name')->get(['id', 'district_name as name']);
             case 'district':
                 return City::where('district_id', $id)->orderBy('city_name')->get(['id', 'city_name as name']);
             case 'zsm':

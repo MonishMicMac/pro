@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\FabricatorStockController;
 use App\Http\Controllers\Api\FabricatorStockManagementController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\S3Controller;
+use App\Http\Controllers\Api\Users\BdoDropDownController;
+
 
 use App\Http\Controllers\Api\InvoiceResponseController;
 
@@ -100,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/leads/send-to-fabricator', [LeadController::class, 'sendToFabricator']);
 
     Route::get('/fabricator/assignments', [LeadController::class, 'getFabricatorAssignments']);
+    Route::get('/fabricator/assignments/detail', [LeadController::class, 'getFabricatorAssignmentsDetails']);
     // Route to get all measurements for a specific lead ID
 
     Route::post('/fabricator/upload-quote', [LeadController::class, 'uploadFabricationDetails']);
@@ -193,4 +196,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('categories', [ProductController::class, 'getCategories']);
     Route::post('sub-categories', [ProductController::class, 'getSubCategories']); // POST allows body params
     Route::post('products', [ProductController::class, 'getProducts']);
+
+    Route::get('/bdo-dropdowns', [BdoDropDownController::class, 'index']);
 });

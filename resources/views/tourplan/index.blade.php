@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Daily Visit Schedules')
+
 @section('content')
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
@@ -13,7 +15,9 @@
     .glass-card { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.2s ease; }
     .glass-card:hover { background: rgba(255, 255, 255, 0.9); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     .glass-modal { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid white; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-    
+    .form-input-custom { width: 100%; padding: 0.5rem 0.75rem; background-color: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; font-size: 0.75rem; font-weight: 700; color: #475569; outline: none; transition: all 0.2s; cursor: pointer; }
+    .form-input-custom:focus { ring: 2px; ring-color: rgba(59, 130, 246, 0.2); border-color: #3b82f6; }
+
     #table-pagination .paginate_button { padding: 4px 10px; margin: 0 2px; border-radius: 8px; background: white; color: #64748b; font-weight: 700; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 28px; transition: all 0.2s; }
     #table-pagination .paginate_button:hover:not(.current) { color: #2563eb; background: #eff6ff; }
     #table-pagination .paginate_button.current { background: #2563eb; color: white; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }
@@ -21,6 +25,8 @@
     table.dataTable tbody tr td { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.5); }
     table.dataTable tbody tr td:first-child { border-left: 1px solid rgba(255,255,255,0.5); border-radius: 12px 0 0 12px; }
     table.dataTable tbody tr td:last-child { border-right: 1px solid rgba(255,255,255,0.5); border-radius: 0 12px 12px 0; }
+    
+    .dataTables_paginate, .dataTables_info { display: none !important; }
 </style>
 
 <div class="relative flex-1 p-6 space-y-4 pb-24 bg-[#f8fafc] min-h-screen">
@@ -37,21 +43,70 @@
 
     {{-- CARD 1: FILTERS --}}
     <div class="glass-panel rounded-[1.5rem] p-6 mb-6">
-        <div class="flex flex-wrap gap-4 items-end">
+        {{-- Grid: 5 Cols on Large Screens --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             
-            {{-- BDO Filter --}}
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">BDO Name</label>
-                <select id="filterUser" class="w-48 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+            {{-- ROW 1 --}}
+
+            {{-- Zone --}}
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Zone</label>
+                <select id="filter_zone" class="form-input-custom">
+                    <option value="">All Zones</option>
+                    @foreach ($zones as $zone)
+                        <option value="{{ $zone->id }}" {{ Auth::user()->zone_id == $zone->id ? 'selected' : '' }}>{{ $zone->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- State --}}
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">State</label>
+                <select id="filter_state" class="form-input-custom">
+                    <option value="">All States</option>
+                    @foreach ($states as $state)
+                        <option value="{{ $state->id }}" {{ Auth::user()->state_id == $state->id ? 'selected' : '' }}>{{ $state->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- District --}}
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">District</label>
+                <select id="filter_district" class="form-input-custom">
+                    <option value="">All Districts</option>
+                    @foreach ($districts as $district)
+                        <option value="{{ $district->id }}" {{ Auth::user()->district_id == $district->id ? 'selected' : '' }}>{{ $district->district_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- City --}}
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">City</label>
+                <select id="filter_city" class="form-input-custom">
+                    <option value="">All Cities</option>
+                    @foreach ($cities as $city)
+                        <option value="{{ $city->id }}" {{ Auth::user()->city_id == $city->id ? 'selected' : '' }}>{{ $city->city_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- BDO Name (User) --}}
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">BDO Name</label>
+                <select id="filterUser" class="form-input-custom">
                     <option value="">All BDOs</option>
                     @foreach($bdos as $bdo) <option value="{{ $bdo->id }}">{{ $bdo->name }}</option> @endforeach
                 </select>
             </div>
 
-            {{-- Location Status Filter --}}
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Location Status</label>
-                <select id="filterLocation" class="w-40 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+            {{-- ROW 2 --}}
+
+            {{-- Location Status --}}
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Location Status</label>
+                <select id="filterLocation" class="form-input-custom">
                     <option value="">All Locations</option>
                     <option value="1">Local</option>
                     <option value="2">Out Station</option>
@@ -60,35 +115,35 @@
                 </select>
             </div>
 
-            {{-- Work Mode Filter --}}
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Work Mode</label>
-                <select id="filterWorkMode" class="w-40 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+            {{-- Work Mode --}}
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Work Mode</label>
+                <select id="filterWorkMode" class="form-input-custom">
                     <option value="">All Work Modes</option>
                     <option value="Individual">Individual</option>
                     <option value="Joint Work">Joint Work</option>
                 </select>
             </div>
-            
-            {{-- Date Range --}}
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date Range</label>
-                <div class="flex items-center gap-2">
-                    <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-2">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase pl-2">From</span>
-                        <input type="date" id="startDate" class="py-2 bg-transparent border-0 text-xs font-bold text-slate-600 outline-none focus:ring-0">
-                    </div>
-                    <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-2">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase pl-2">To</span>
-                        <input type="date" id="endDate" class="py-2 bg-transparent border-0 text-xs font-bold text-slate-600 outline-none focus:ring-0">
-                    </div>
+
+            {{-- Date Range (Spans 2 cols on Large) --}}
+            <div class="lg:col-span-2">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Date Range</label>
+                <div class="flex gap-2">
+                    <input type="date" id="startDate" class="form-input-custom">
+                    <input type="date" id="endDate" class="form-input-custom">
                 </div>
             </div>
 
-            {{-- Filter Button --}}
-            <button onclick="table.draw()" class="mb-[2px] px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:shadow-blue-300 transition-all flex items-center gap-2">
-                <span class="material-symbols-outlined text-[18px]">filter_alt</span> Apply Filters
-            </button>
+            {{-- Action Buttons --}}
+            <div class="flex items-end justify-end gap-2 pb-[2px]">
+                <button onclick="resetFilters()" class="px-4 h-[38px] bg-white text-slate-500 text-[10px] font-black uppercase border border-slate-200 rounded-xl hover:bg-slate-50 transition-all active:scale-95 shadow-sm">
+                    Reset
+                </button>
+                <button onclick="table.draw()" class="flex-1 h-[38px] bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-blue-500/20">
+                    <span class="material-symbols-outlined text-[18px]">filter_alt</span> Apply
+                </button>
+            </div>
+            
         </div>
     </div>
 
@@ -161,7 +216,6 @@
                                         <tr>
                                             <th class="p-3">Type</th>
                                             <th class="p-3">Client Name</th>
-                                            {{-- ADDED BDM COLUMN --}}
                                             <th class="p-3">BDM Name</th>
                                             <th class="p-3 text-right">Status</th>
                                         </tr>
@@ -205,19 +259,72 @@ let table;
 
 $(document).ready(function() {
     
-    // Initialize DataTable
+    // --- Helper: Reset Dropdown ---
+    function resetDropdown(selector, placeholder = "All") {
+        $(selector).html(`<option value="">${placeholder}</option>`);
+    }
+
+    // --- Cascading Filters (Zone -> State/User -> etc) ---
+    // Zone -> State & Users (Filtering BDOs excluding telecallers logic in backend)
+    $('#filter_zone').change(function() {
+        let zoneId = $(this).val();
+        resetDropdown('#filter_state', 'All States'); 
+        resetDropdown('#filter_district', 'All Districts'); 
+        resetDropdown('#filter_city', 'All Cities');
+        resetDropdown('#filterUser', 'All BDOs'); 
+        
+        if(zoneId) {
+            // NOTE: Make sure to add this route to web.php pointing to TourPlanController@getLocationData
+            $.get("{{ route('tour-plans.get-locations') }}", { type: 'zone', id: zoneId }, function(data) {
+                let states = data.states || [];
+                states.forEach(st => $('#filter_state').append(`<option value="${st.id}">${st.name}</option>`));
+                
+                // Users specific to zone
+                let users = data.users || [];
+                users.forEach(u => $('#filterUser').append(`<option value="${u.id}">${u.name}</option>`));
+            });
+        }
+    });
+
+    $('#filter_state').change(function() {
+        let stateId = $(this).val();
+        resetDropdown('#filter_district', 'All Districts'); 
+        resetDropdown('#filter_city', 'All Cities');
+        if(stateId) {
+            $.get("{{ route('tour-plans.get-locations') }}", { type: 'state', id: stateId }, function(data) {
+                data.forEach(dt => $('#filter_district').append(`<option value="${dt.id}">${dt.name}</option>`));
+            });
+        }
+    });
+
+    $('#filter_district').change(function() {
+        let districtId = $(this).val();
+        resetDropdown('#filter_city', 'All Cities');
+        if(districtId) {
+            $.get("{{ route('tour-plans.get-locations') }}", { type: 'district', id: districtId }, function(data) {
+                data.forEach(city => $('#filter_city').append(`<option value="${city.id}">${city.name}</option>`));
+            });
+        }
+    });
+
+
+    // --- DataTable ---
     table = $('#tour-table').DataTable({
         processing: true, 
         serverSide: true,
         ajax: {
             url: "{{ route('tour-plans.data') }}",
             data: function (d) { 
-                // Pass Filters to Controller
                 d.user_id = $('#filterUser').val(); 
-                d.location_status = $('#filterLocation').val(); // New Filter
-                d.work_mode = $('#filterWorkMode').val();       // New Filter
+                d.location_status = $('#filterLocation').val();
+                d.work_mode = $('#filterWorkMode').val(); 
                 d.start_date = $('#startDate').val(); 
-                d.end_date = $('#endDate').val();     
+                d.end_date = $('#endDate').val();
+                // Add Location Filters
+                d.zone_id = $('#filter_zone').val();
+                d.state_id = $('#filter_state').val();
+                d.district_id = $('#filter_district').val();
+                d.city_id = $('#filter_city').val();
             }
         },
         createdRow: (row) => $(row).addClass('glass-card group hover:bg-white/60 transition-all'),
@@ -230,23 +337,19 @@ $(document).ready(function() {
             { data: 'total_visits', name: 'total_visits', className: 'text-center' },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' }
         ],
-        dom: 'rtp', // Hides default Search/Pagination controls (we used custom ones)
+        dom: 'rtp',
         language: {
-            // Custom Icons for Pagination
             paginate: { 
                 previous: '<span class="material-symbols-outlined font-black text-[28px]">chevron_left</span>', 
                 next: '<span class="material-symbols-outlined font-black text-[28px]">chevron_right</span>' 
             }
         },
         drawCallback: function(settings) {
-            // Update Info Text
             $('#table-info').text(`Showing ${settings.json.data.length} of ${settings.json.recordsTotal} Records`);
-            
-            // Move Pagination to our custom container
             $('#table-pagination').html($('.dataTables_paginate').html());
             $('.dataTables_paginate').empty();
             
-            // Re-bind click events
+            // Re-bind click events for custom pagination
             $('#table-pagination .paginate_button').on('click', function(e) {
                 e.preventDefault();
                 if ($(this).hasClass('disabled') || $(this).hasClass('current')) return;
@@ -257,20 +360,25 @@ $(document).ready(function() {
         }
     });
 
-    // Event Listeners for Filters
     $('#customSearch').on('keyup', function() { table.search(this.value).draw(); });
+    // Trigger redraw when manual filters change (User, LocStatus, WorkMode, Dates)
     $('#filterUser, #filterLocation, #filterWorkMode, #startDate, #endDate').on('change', function() { table.draw(); });
 });
 
-// --- Modal Functions ---
+window.resetFilters = function() {
+    $('#filter_zone, #filter_state, #filter_district, #filter_city').val('').trigger('change');
+    $('#filterUser, #filterLocation, #filterWorkMode, #startDate, #endDate').val('');
+    $('#customSearch').val('');
+    table.search('').draw();
+};
 
+// Modal Logic
 window.openTourModal = function(userId, date) {
     $('#tourModal').removeClass('hidden');
     $('#modalLoader').show();
     $('#modalContent').addClass('hidden');
-    $('#modalDate').text(formatDate(date)); // Optional: Helper to format date nicely
+    $('#modalDate').text(formatDate(date)); 
 
-    // Fetch Details
     $.get("{{ route('tour-plans.details') }}", { user_id: userId, date: date }, function(data) {
         $('#modalLoader').hide();
         $('#modalContent').removeClass('hidden');
@@ -289,22 +397,16 @@ function renderList(type, items) {
     } else {
         emptyMsg.addClass('hidden');
         items.forEach(item => {
-            // Style badge color based on status
             const statusColor = item.status === 'Visited' ? 'text-emerald-500' : 'text-amber-500';
             const icon = item.status === 'Visited' ? 'check_circle' : 'schedule';
-            
-            // Conditional Column: Only show BDM column for Joint Work (For BDO View)
-            const bdmColumn = type === 'joint' 
-                ? `<td class="p-3 text-indigo-600 font-bold">${item.bdm_name}</td>` 
-                : '';
-
+            const bdmColumn = type === 'joint' ? `<td class="p-3 text-indigo-600 font-bold">${item.bdm_name}</td>` : '';
             const html = `
                 <tr class="hover:bg-white/50 transition-colors">
                     <td class="p-3 w-20">
                         <span class="px-2 py-1 bg-white border border-slate-200 rounded-md text-[9px] font-bold uppercase text-slate-500 tracking-wide">${item.type}</span>
                     </td>
                     <td class="p-3 text-slate-700">${item.name}</td>
-                    ${bdmColumn} {{-- Insert BDM Column if Joint --}}
+                    ${bdmColumn}
                     <td class="p-3 text-right">
                         <span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase ${statusColor}">
                             <span class="material-symbols-outlined text-[14px]">${icon}</span> ${item.status}

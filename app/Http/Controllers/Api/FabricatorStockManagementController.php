@@ -13,17 +13,45 @@ class FabricatorStockManagementController extends Controller
      * 1. LIST API (GET)
      * URL: api/fabricator-stock/list
      */
-    public function list(Request $request)
-    {
-        // Fetch all records, ordered by newest first
-        $stocks = FabricatorStockManagement::orderBy('created_at', 'desc')->get();
+    // public function list(Request $request)
+    // {
+    //     // Fetch all records, ordered by newest first
+    //     $stocks = FabricatorStockManagement::orderBy('created_at', 'desc')->get();
 
-        return response()->json([
-            'success' => true,
-            'count'   => $stocks->count(),
-            'data'    => $stocks
-        ], 200);
-    }
+    //     return response()->json([
+    //         'success' => true,
+    //         'count'   => $stocks->count(),
+    //         'data'    => $stocks
+    //     ], 200);
+    // }
+
+public function list(Request $request)
+{
+    $stocks = FabricatorStockManagement::with('product:id,name')
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->map(function ($item) {
+            return [
+                'id'             => $item->id,
+                'product_id'     => $item->product_id,
+                'product_name'   => $item->product->name ?? null,
+                'fabricator_id'  => $item->fabricator_id,
+                'opening_stock'  => $item->opening_stock,
+                'closing_stock'  => $item->closing_stock,
+                'current_stock'  => $item->current_stock,
+                'updated_by'     => $item->updated_by,
+                'action'         => $item->action,
+                'created_at'     => $item->created_at,
+                'updated_at'     => $item->updated_at,
+            ];
+        });
+
+    return response()->json([
+        'success' => true,
+        'count'   => $stocks->count(),
+        'data'    => $stocks
+    ], 200);
+}
 
     /**
      * 2. STORE API (POST)

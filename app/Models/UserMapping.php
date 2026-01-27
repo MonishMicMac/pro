@@ -15,4 +15,11 @@ class UserMapping extends Model
     public function zsm() { return $this->belongsTo(User::class, 'zsm_id'); }
     public function bdm() { return $this->belongsTo(User::class, 'bdm_id'); }
     public function bdo() { return $this->belongsTo(User::class, 'bdo_id'); }
+
+    // Accessor for multiple ZSMs
+    public function getZsmsAttribute()
+    {
+        if (empty($this->zsm_id)) return collect([]);
+        return User::whereIn('id', explode(',', $this->zsm_id))->get(['id', 'name']);
+    }
 }

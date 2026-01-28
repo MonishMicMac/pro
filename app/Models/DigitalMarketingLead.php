@@ -55,7 +55,7 @@ class DigitalMarketingLead extends Model
         'transfter_remarks',
         'transftered_lead_using_brand',
         'telecaller_id',
-        'updated_by'
+        'updated_by','is_cross_selling'
     ];
 
     public function assignedUser(): BelongsTo

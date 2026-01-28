@@ -963,6 +963,7 @@ public function leadCheckOut(Request $request)
                                 'stage' => 0,
                                 'transfered_by' => $lead->user_id,
                                 'transfered_date' => Carbon::now(),
+                                'is_cross_selling' =>'1',
                                 'transfter_remarks' => $request->remarks,
                                 'transftered_lead_using_brand' => $request->brand_id
                             ]);

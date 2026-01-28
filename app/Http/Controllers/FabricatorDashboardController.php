@@ -35,7 +35,7 @@ class FabricatorDashboardController extends Controller
             ->where('status', '0')->count();
 
         $completed = FabricatorRequest::where('fabricator_id', $id)
-            ->where('status', '1', '2')->count();
+            ->whereIn('status', ['1', '2'])->count();
 
         return view('fabricator.dashboard', compact(
             'fabricator',

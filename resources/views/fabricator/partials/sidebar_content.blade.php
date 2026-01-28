@@ -69,8 +69,8 @@
             Assignments
         </a>
 
-        <a href="{{ route('fabricator-stock.report') }}"
-            class="sidebar-link {{ request()->routeIs('fabricator-stock.report*') ? 'active' : '' }}">
+        <a href="{{ route('fabricator.stock.report') }}"
+            class="sidebar-link {{ request()->routeIs('fabricator.stock.report*') ? 'active' : '' }}">
             <span class="material-symbols-outlined">inventory</span>
             Stock Report
         </a>

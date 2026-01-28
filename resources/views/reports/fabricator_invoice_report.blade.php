@@ -152,7 +152,7 @@
                     render: function(data) {
                         let cls = 'bg-slate-100 text-slate-600';
                         if (data === 'INVOICE') cls = 'bg-blue-100 text-blue-600';
-                        if (data === 'CREDI NOTE') cls = 'bg-emerald-100 text-emerald-600';
+                        if (data === 'CREDIT NOTE') cls = 'bg-emerald-100 text-emerald-600';
                         if (data === 'CANCEL') cls = 'bg-rose-100 text-rose-600';
                         return `<span class='px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-wider ${cls}'>${data}</span>`;
                     }

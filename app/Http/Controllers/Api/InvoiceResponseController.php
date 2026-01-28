@@ -40,7 +40,7 @@ class InvoiceResponseController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'cust_id' => 'required|exists:fabricators,cust_id',
-            'invoice_type' => 'required|in:INVOICE,DEBIT NOTE,CREDI NOTE,CANCEL',
+            'invoice_type' => 'required|in:INVOICE,DEBIT NOTE,CREDIT NOTE,CANCEL',
             'invoice_no' => 'required|string',
             'invoice_date' => 'required|date',
             'amount' => 'required|numeric|min:1',
@@ -64,7 +64,7 @@ class InvoiceResponseController extends Controller
                 $debit = $request->amount;
             }
 
-            if (in_array($request->invoice_type, ['CANCEL','CREDI NOTE'])) {
+            if (in_array($request->invoice_type, ['CANCEL','CREDIT NOTE'])) {
                 $credit = $request->amount;
             }
 

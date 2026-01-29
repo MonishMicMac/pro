@@ -20,8 +20,8 @@ class TravelAllowanceMaster extends Model
     public static function getVehicleTypes()
     {
         return [
-            0 => 'Bike',
-            1 => 'Car'
+            1 => 'Bike',
+            2 => 'Car'
         ];
     }
 }

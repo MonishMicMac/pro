@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Role; 
 
 class StationAllowanceMaster extends Model
 {
@@ -15,6 +16,7 @@ class StationAllowanceMaster extends Model
         'station_type',
         'amount',
         'action',
+        'role_id'
     ];
 
     public static function getStationTypes()
@@ -23,5 +25,10 @@ class StationAllowanceMaster extends Model
             1 => 'Local',
             2 => 'Outstation'
         ];
+    }
+
+     public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id', 'id');
     }
 }

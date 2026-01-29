@@ -58,8 +58,15 @@
                     <label class="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1 block">Potential Date</label>
                     <input type="date" id="filter-potential-date" class="w-full px-4 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20">
                 </div>
-                <div class="hidden lg:block"></div>
-                <div class="flex items-end">
+                <div>
+                    <label class="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1 block">Cross Selling</label>
+                    <select id="filter-cross-selling" class="w-full px-4 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 uppercase">
+                        <option value="">All</option>
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
+                </div>
+                <div class="flex items-end lg:col-span-1">
                     <button id="btn-apply-filter" class="w-full px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold shadow-lg shadow-slate-200 hover:bg-blue-600 hover:shadow-blue-200 transition-all flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-[18px]">filter_list</span> Apply Filters
                     </button>
@@ -129,6 +136,7 @@
                             <th class="px-4 pb-2 text-amber-600">Potential Follow Up</th>
                             <th class="px-4 pb-2">Assigned</th>
                             <th class="px-4 pb-2">Zone</th>
+                            <th class="px-4 pb-2">Cross Selling</th>
                             <th class="px-4 pb-2 text-center">Status</th>
                             <th class="px-4 pb-2 text-center">Action</th>
                         </tr>
@@ -184,6 +192,20 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                        <div id="cross_selling_info_panel" class="hidden col-span-2 bg-rose-50 border border-rose-100 rounded-2xl p-4 mb-2">
+                             <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-rose-600">swap_horizontal_circle</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="text-[11px] font-black text-rose-600 uppercase tracking-widest mb-1">Cross Selling Context</h4>
+                                    <p id="modal_cross_selling_brand" class="text-[10px] font-bold text-slate-700 uppercase"></p>
+                                    <p id="modal_cross_selling_remarks" class="text-[10px] text-slate-500 italic mt-1"></p>
+                                    <div id="modal_original_lead_link" class="mt-2"></div>
+                                </div>
+                             </div>
+                        </div>
+
                         <div class="col-span-2">
                             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Stage</label>
                             <select name="stage" id="stage" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20">
@@ -233,45 +255,62 @@
                             </select>
                         </div>
 
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned To</label>
-                            <select name="assigned_to" id="lead_assigned_to" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
-                                <option value="">Select User</option>
-                                @foreach($users as $user) <option value="{{ $user->id }}">{{ $user->name }}</option> @endforeach
-                            </select>
+                        <div id="assigned_to_section" class="hidden col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+                            <div>
+                                <label class="block text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">person_add</span> Assigned To
+                                </label>
+                                <select name="assigned_to" id="lead_assigned_to" class="w-full px-4 py-2 bg-white border border-emerald-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
+                                    <option value="">Select User</option>
+                                    @foreach($users as $user) <option value="{{ $user->id }}">{{ $user->name }}</option> @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">explore</span> Zone
+                                </label>
+                                <select name="zone" id="lead_zone" class="w-full px-4 py-2 bg-white border border-emerald-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
+                                    <option value="">Select Zone</option>
+                                    @foreach($zones as $zone) <option value="{{ $zone->id }}">{{ $zone->name }}</option> @endforeach
+                                </select>
+                            </div>
                         </div>
+
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Zone</label>
-                            <select name="zone" id="lead_zone" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
-                                <option value="">Select Zone</option>
-                                @foreach($zones as $zone) <option value="{{ $zone->id }}">{{ $zone->name }}</option> @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Building Status</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">apartment</span> Building Status
+                            </label>
                             <select name="building_status" id="lead_building_status" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
                                 <option value="">Select Status</option>
                                 @foreach($buildingStatuses as $status) <option value="{{ $status->id }}">{{ $status->name }}</option> @endforeach
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Building Type</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">construction</span> Building Type
+                            </label>
                             <select name="building_type" id="lead_building_type" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
                                 <option value="">Select Type</option>
                                 @foreach($buildingTypes as $key => $value) <option value="{{ $key }}">{{ $value }}</option> @endforeach
                             </select>
                         </div>
                          <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Order Sqft</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">square_foot</span> SQFT
+                            </label>
                              <input type="number" step="0.01" name="total_order_sqft" id="lead_total_order_sqft" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Colour</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">palette</span> Colour
+                            </label>
                              <input type="text" name="colour" id="lead_colour" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none">
                         </div>
 
                          <div class="col-span-2">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Remarks</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">chat</span> Remarks
+                            </label>
                             <textarea name="remarks" id="lead_remarks" rows="2" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none"></textarea>
                         </div>
                     </div>
@@ -345,6 +384,7 @@
                     d.state_id = $('#filter-state').val();
                     d.district_id = $('#filter-district').val();
                     d.city_id = $('#filter-city').val();
+                    d.is_cross_selling = $('#filter-cross-selling').val();
                 }
             },
             createdRow: function(row) {
@@ -373,6 +413,19 @@
                 { data: 'potential_follow_up_date', name: 'potential_follow_up_date', defaultContent: '-' },
                 { data: 'assigned_user.name', name: 'assigned_user.name', searchable: false, defaultContent: '-' },
                 { data: 'zone_details.name', name: 'zone_details.name', searchable: false, defaultContent: '-' },
+                {
+                    data: 'is_cross_selling',
+                    name: 'is_cross_selling',
+                    render: function(data, type, row) {
+                        if (data == '1') {
+                            let typeLabel = row.crossed_lead_id ? 'New Opportunity' : 'Wrong Brand';
+                            let bgColor = row.crossed_lead_id ? 'bg-emerald-500/10' : 'bg-rose-500/10';
+                            let textColor = row.crossed_lead_id ? 'text-emerald-600' : 'text-rose-600';
+                            return `<span class="inline-flex items-center gap-1 px-2 py-0.5 ${bgColor} ${textColor} rounded-md text-[8px] font-black uppercase tracking-widest w-fit">${typeLabel}</span>`;
+                        }
+                        return '<span class="text-slate-300 text-[10px] font-bold uppercase tracking-wider">No</span>';
+                    }
+                },
                 {
                     data: 'otp_status',
                     render: (d) => d === 'Verified'
@@ -421,7 +474,7 @@
 
         // Reset
         $('#reset-filters').on('click', function() {
-            $('#filter-stage, #filter-future-date, #filter-potential-date').val('');
+            $('#filter-stage, #filter-future-date, #filter-potential-date, #filter-cross-selling').val('');
             $('#filter-zone').val('').trigger('change');
             $('#customSearch').val('');
             table.search('').draw();
@@ -463,7 +516,36 @@
             $.get(`{{ url('marketing/leads') }}/${id}/edit`, function(data) {
                 $('#Lead_id').val(data.id);
                 $('#method').val('PUT');
-                $('#stage').val(data.stage).change();
+
+                // If lead is in Prospect stage, disable stage changing as requested
+                if (data.stage == 4) {
+                    $('#stage').val(4).prop('disabled', true);
+                    $('#LeadForm button[type="submit"]').addClass('hidden');
+                    alert('Prospect stage is final and cannot be edited.');
+                } else {
+                    $('#stage').val(data.stage).prop('disabled', false).change();
+                    $('#LeadForm button[type="submit"]').removeClass('hidden');
+                }
+
+                // Cross Selling Info
+                if (data.is_cross_selling == '1') {
+                    $('#cross_selling_info_panel').removeClass('hidden');
+                    let typeLabel = data.crossed_lead_id ? 'New Opportunity (Possible Lead)' : 'Wrong Brand (Reassignment)';
+                    $('#modal_cross_selling_brand').html(`<span class="text-rose-600">[${typeLabel}]</span><br>Brand: ` + (data.target_brand ? data.target_brand.name : 'Unknown'));
+                    $('#modal_cross_selling_remarks').text(data.transfter_remarks ? `"${data.transfter_remarks}"` : 'No remarks.');
+                    
+                    if (data.crossed_lead_id) {
+                        let originalUrl = `{{ url('leads') }}/${data.crossed_lead_id}`;
+                        $('#modal_original_lead_link').html(`<a href="${originalUrl}" target="_blank" class="text-[9px] text-blue-500 hover:underline font-bold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[14px]">history</span> View Original Lead context
+                        </a>`);
+                    } else {
+                        $('#modal_original_lead_link').empty();
+                    }
+                } else {
+                    $('#cross_selling_info_panel').addClass('hidden');
+                }
+
                 $('#lead_customer_type').val(data.customer_type);
                 $('#lead_remarks').val(data.remarks);
                 $('#lead_colour').val(data.colour);
@@ -483,11 +565,12 @@
         });
 
         function toggleFollowUpFields(stageValue) {
-            $('#future_follow_up_section, #potential_follow_up_section, #disqualified_reason_section, #rnr_reason_section').addClass('hidden');
+            $('#future_follow_up_section, #potential_follow_up_section, #disqualified_reason_section, #rnr_reason_section, #assigned_to_section').addClass('hidden');
             if (stageValue == '5') $('#future_follow_up_section').removeClass('hidden');
             else if (stageValue == '6') $('#potential_follow_up_section').removeClass('hidden');
             else if (stageValue == '2') $('#disqualified_reason_section').removeClass('hidden');
             else if (stageValue == '7') $('#rnr_reason_section').removeClass('hidden');
+            else if (stageValue == '4') $('#assigned_to_section').removeClass('hidden');
         }
 
         $('#stage').on('change', function() { toggleFollowUpFields($(this).val()); });
@@ -495,12 +578,33 @@
         $('#LeadForm').submit(function(e) {
             e.preventDefault();
             const id = $('#Lead_id').val();
+            const $submitBtn = $(this).find('button[type="submit"]');
+            $submitBtn.prop('disabled', true).html('<span class="material-symbols-outlined animate-spin text-[18px]">sync</span> Saving...');
+
             $.ajax({
-                url: `{{ url('marketing/leads') }}/${id}`, type: 'POST', data: $(this).serialize(),
-                success: function() {
-                    closeModal('LeadModal');
-                    alert('Lead updated successfully');
-                    table.draw(false);
+                url: `{{ url('marketing/leads') }}/${id}`, 
+                type: 'POST', 
+                data: $(this).serialize(),
+                success: function(response) {
+                    if (response.success) {
+                        closeModal('LeadModal');
+                        alert(response.message || 'Lead updated successfully');
+                        table.draw(false);
+                    } else {
+                        alert('Error: ' + (response.message || 'Something went wrong'));
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = 'An error occurred while saving.';
+                    if (xhr.status === 422 && xhr.responseJSON) {
+                        errorMsg = xhr.responseJSON.message || 'Validation failed.';
+                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    alert(errorMsg);
+                },
+                complete: function() {
+                    $submitBtn.prop('disabled', false).html('Save Changes');
                 }
             });
         });

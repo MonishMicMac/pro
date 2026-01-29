@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\User;
+use App\Models\Brand;
 
 class DigitalMarketingLead extends Model
 {
@@ -49,6 +50,7 @@ class DigitalMarketingLead extends Model
         'disqualified_reason',
         'rnr_reason',
         'lead_id',
+        'crossed_lead_id',
         'transfered_by',
         'transfered_date',
         'before_transfer_user',
@@ -89,9 +91,13 @@ class DigitalMarketingLead extends Model
 {
     return $this->belongsTo(User::class, 'transfered_by');
 }
-public function telecaller()
-{
-    return $this->belongsTo(User::class, 'telecaller_id');
-}
+    public function telecaller()
+    {
+        return $this->belongsTo(User::class, 'telecaller_id');
+    }
 
+    public function targetBrand()
+    {
+        return $this->belongsTo(Brand::class, 'transftered_lead_using_brand');
+    }
 }

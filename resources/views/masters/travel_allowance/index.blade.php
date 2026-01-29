@@ -114,8 +114,8 @@
                 <div>
                     <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Vehicle Type</label>
                     <select name="vehicle_type" id="travelAllowance_vehicle_type" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all" required>
-                        <option value="0">Bike</option>
-                        <option value="1">Car</option>
+                        <option value="1">Bike</option>
+                        <option value="2">Car</option>
                     </select>
                 </div>
                 <div>

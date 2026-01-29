@@ -7,39 +7,51 @@ use App\Models\StationAllowanceMaster;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Spatie\Permission\Models\Role; 
 
 class StationAllowanceMasterController extends Controller
 {
     use AuthorizesRequests;
 
-    public function index(Request $request)
-    {
-        $this->authorize('station-allowance.view');
 
-        if ($request->ajax()) {
-            $data = StationAllowanceMaster::where('action', '0')->latest();
+public function index(Request $request)
+{
+    $this->authorize('station-allowance.view');
 
-            return DataTables::of($data)
-                ->addIndexColumn()
-                ->editColumn('station_type', function ($row) {
-                    return StationAllowanceMaster::getStationTypes()[$row->station_type] ?? 'Unknown';
-                })
-                ->make(true);
-        }
+    if ($request->ajax()) {
+        $data = StationAllowanceMaster::with('role')
+            ->where('action', '0')
+            ->latest();
 
-        return view('masters.station_allowance.index');
+        return DataTables::of($data)
+            ->addIndexColumn()
+            ->editColumn('station_type', fn ($row) =>
+                StationAllowanceMaster::getStationTypes()[$row->station_type] ?? 'Unknown'
+            )
+            ->addColumn('role_name', fn ($row) =>
+                $row->role?->name ?? '-'
+            )
+            ->make(true);
     }
+
+    $roles = Role::orderBy('name')->get();
+
+    return view('masters.station_allowance.index', compact('roles'));
+}
+
 
     public function store(Request $request)
     {
         $this->authorize('station-allowance.create');
 
         $request->validate([
+            'role_id'      => 'required|exists:roles,id',
             'station_type' => 'required|in:1,2',
             'amount'       => 'required|numeric|min:0'
         ]);
 
         StationAllowanceMaster::create([
+            'role_id'      => $request->role_id,
             'station_type' => $request->station_type,
             'amount'       => $request->amount,
             'action'       => '0'
@@ -65,6 +77,7 @@ class StationAllowanceMasterController extends Controller
         ]);
 
         StationAllowanceMaster::where('id', $id)->update([
+            'role_id'      => $request->role_id,
             'station_type' => $request->station_type,
             'amount'       => $request->amount
         ]);

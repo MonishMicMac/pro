@@ -14,6 +14,9 @@ use Spatie\Permission\Models\Role;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Helpers\S3UploadHelper;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
+use Yajra\DataTables\Facades\DataTables;
+use App\Models\FabricatorStockManagement;
 
 
 
@@ -408,4 +411,117 @@ class FabricatorDashboardController extends Controller
     //         ], 500);
     //     }
     // }
+
+
+
+     public function stockReport()
+    {
+        $fabricators = Fabricator::where('status', '0')->orderBy('shop_name')->get(); 
+        $zones = \App\Models\Zone::where('action', '0')->orderBy('name')->get();
+        
+        return view('fabricator.fabricator_stock_report', compact('fabricators', 'zones'));
+    }
+
+
+    /**
+     * Yajra DataTable endpoint for stock records
+     */
+   public function data(Request $request)
+{    auth()->shouldUse('fabricator');
+
+    $fabricator = Auth::guard('fabricator')->user();
+
+    if (!$fabricator) {
+        return response()->json([
+            'draw' => intval($request->draw),
+            'recordsTotal' => 0,
+            'recordsFiltered' => 0,
+            'data' => []
+        ]);
+    }
+
+    $startDate = $request->from_date
+        ? Carbon::parse($request->from_date)->startOfDay()
+        : null;
+
+    $endDate = $request->to_date
+        ? Carbon::parse($request->to_date)->endOfDay()
+        : null;
+
+    /**
+     * Get latest stock per product FOR THIS FABRICATOR ONLY
+     */
+    $latestIds = FabricatorStockManagement::where('fabricator_id', $fabricator->id)
+        ->selectRaw('MAX(id) as id')
+        ->groupBy('product_id')
+        ->pluck('id');
+
+    $query = FabricatorStockManagement::with([
+        'product.category',
+        'product.subCategory'
+    ])->whereIn('id', $latestIds);
+
+    // Date filter (updated between)
+    if ($startDate && $endDate) {
+        $query->whereBetween('updated_at', [$startDate, $endDate]);
+    }
+
+    // Product filters
+    if ($request->category_id) {
+        $query->whereHas('product', fn($q) =>
+            $q->where('category_id', $request->category_id)
+        );
+    }
+
+    if ($request->sub_category_id) {
+        $query->whereHas('product', fn($q) =>
+            $q->where('sub_category_id', $request->sub_category_id)
+        );
+    }
+
+    if ($request->product_id) {
+        $query->where('product_id', $request->product_id);
+    }
+
+    return DataTables::of($query)
+        ->addColumn('date', fn($r) => $r->updated_at->format('d-M-Y'))
+        ->addColumn('fabricator_zone', fn() => '-') // removed
+        ->addColumn('fabricator_name', fn() => '-') // removed
+        ->addColumn('category_name', fn($r) => $r->product->category->name ?? '-')
+        ->addColumn('sub_category_name', fn($r) => $r->product->subCategory->name ?? '-')
+        ->addColumn('product_name', fn($r) => $r->product->name ?? '-')
+        ->addColumn('current_stock', fn($r) => $r->current_stock)
+        ->addColumn('updated_by', function ($r) {
+            return optional(\App\Models\User::find($r->updated_by))->name ?? '-';
+        })
+        ->make(true);
+}
+
+
+    public function getCategories()
+    {
+        $data = \App\Models\Category::where('action', '0')->orderBy('name')->select('id', 'name')->get();
+        return response()->json($data);
+    }
+
+    public function getSubCategories(Request $request)
+    {
+        $query = \App\Models\SubCategory::where('action', '0')->orderBy('name')->select('id', 'name', 'category_id');
+        if($request->category_id) {
+            $query->where('category_id', $request->category_id);
+        }
+        return response()->json($query->get());
+    }
+
+    public function getProducts(Request $request)
+    {
+        $query = \App\Models\Product::where('action', '0')->orderBy('name')->select('id', 'name', 'item_code');
+        if($request->category_id) {
+            $query->where('category_id', $request->category_id);
+        }
+        if($request->sub_category_id) {
+            $query->where('sub_category_id', $request->sub_category_id);
+        }
+        return response()->json($query->get());
+    }
 }

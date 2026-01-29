@@ -19,6 +19,8 @@ use App\Http\Controllers\AssignLeadsController;
 use App\Http\Controllers\TelecallerController;
 use App\Http\Controllers\BdoTargetController;
 use App\Http\Controllers\FabricatorAccountingReportController;
+use App\Http\Controllers\BdoAllowanceReportController;
+use App\Http\Controllers\BdmAllowanceReportController;
 
 
 // Public Routes
@@ -238,19 +240,19 @@ Route::prefix('fabricator')
             [FabricatorDashboardController::class, 'uploadFabricationDetails']
         )->name('fabricator.upload.pdf');
 
-        Route::get('stock-report', [App\Http\Controllers\FabricatorStockReportController::class, 'index'])
+        Route::get('stock-report', [App\Http\Controllers\FabricatorDashboardController::class, 'stockReport'])
             ->name('fabricator.stock.report');
 
-        Route::get('stock-report/data', [App\Http\Controllers\FabricatorStockReportController::class, 'data'])
+        Route::get('stock-report/data', [App\Http\Controllers\FabricatorDashboardController::class, 'data'])
             ->name('fabricator.stock.report.data');
 
-        Route::get('stock-report/categories', [App\Http\Controllers\FabricatorStockReportController::class, 'getCategories'])
+        Route::get('stock-report/categories', [App\Http\Controllers\FabricatorDashboardController::class, 'getCategories'])
             ->name('fabricator.stock.report.categories');
 
-        Route::get('stock-report/sub-categories', [App\Http\Controllers\FabricatorStockReportController::class, 'getSubCategories'])
+        Route::get('stock-report/sub-categories', [App\Http\Controllers\FabricatorDashboardController::class, 'getSubCategories'])
             ->name('fabricator.stock.report.sub-categories');
 
-        Route::get('stock-report/products', [App\Http\Controllers\FabricatorStockReportController::class, 'getProducts'])
+        Route::get('stock-report/products', [App\Http\Controllers\FabricatorDashboardController::class, 'getProducts'])
             ->name('fabricator.stock.report.products');
     });
 
@@ -441,3 +443,13 @@ Route::get('/assign-leads', [AssignLeadsController::class, 'index'])->name('assi
 Route::post('/assign-leads/update', [AssignLeadsController::class, 'assignTelecaller'])->name('assign-leads.update');
 Route::get('/get-telecallers-by-zone', [AssignLeadsController::class, 'getTelecallersByZone'])->name('get.telecallers.by.zone');
 Route::get('/telecaller-report', [TelecallerController::class, 'index'])->name('telecaller.report');
+
+
+Route::group(['prefix' => 'reports', 'as' => 'reports.', 'middleware' => ['auth']], function () {
+    Route::get('/bdo-allowance-report', [BdoAllowanceReportController::class, 'index'])->name('bdo-allowance');
+    Route::get('/bdm-allowance-report', [BdmAllowanceReportController::class, 'index'])->name('bdm-allowance');
+});
+
+Route::get('/holidays', [App\Http\Controllers\HolidayController::class, 'index'])->name('holidays.index');
+Route::get('/holidays/fetch', [App\Http\Controllers\HolidayController::class, 'fetch'])->name('holidays.fetch');
+Route::post('/holidays/store', [App\Http\Controllers\HolidayController::class, 'store'])->name('holidays.store');

@@ -67,7 +67,7 @@ class DigitalMarketingLeadController extends Controller
         if ($request->ajax()) {
             
             // Start Query & Join with Users table to filter by Assigned User's Location
-            $query = DigitalMarketingLead::with(['assignedUser', 'zoneDetails', 'status', 'type', 'lead', 'transferer'])
+            $query = DigitalMarketingLead::with(['assignedUser', 'zoneDetails', 'status', 'type', 'lead', 'transferer', 'targetBrand'])
                 ->leftJoin('users', 'digital_marketing_leads.assigned_to', '=', 'users.id')
                 ->select('digital_marketing_leads.*');
 
@@ -106,6 +106,10 @@ class DigitalMarketingLeadController extends Controller
             }
             if ($request->filled('potential_date')) {
                 $query->whereDate('digital_marketing_leads.potential_follow_up_date', $request->potential_date);
+            }
+
+            if ($request->filled('is_cross_selling')) {
+                $query->where('digital_marketing_leads.is_cross_selling', $request->is_cross_selling);
             }
 
             $data = $query->latest('digital_marketing_leads.created_at');
@@ -190,6 +194,21 @@ class DigitalMarketingLeadController extends Controller
         // Update only the fields provided in the request
         $data = $request->all();
         $data['updated_by'] = Auth::id(); // ✅ logged in user
+
+        // 1. Prevent Re-assignment if already assigned
+        if ($lead->assigned_to && $request->filled('assigned_to') && $lead->assigned_to != $request->assigned_to) {
+            return response()->json(['success' => false, 'message' => 'Lead is already assigned and cannot be re-assigned.'], 422);
+        }
+
+        // 2. Prevent Stage Changes if already in Prospect stage (Stage 4)
+        if ($lead->stage == 4 && isset($data['stage']) && $lead->stage != $data['stage']) {
+             return response()->json(['success' => false, 'message' => 'Prospect stage is final and cannot be changed.'], 422);
+        }
+
+        // 3. Auto-transition to stage 4 (Prospect/Shared) if newly assigned
+        if ($request->filled('assigned_to') && !$lead->assigned_to) {
+             $data['stage'] = 4;
+        }
 
         // Clear reasons if not relevant to the new stage
         if (isset($data['stage']) && $data['stage'] != 2) { // 2 = Disqualified

@@ -35,7 +35,7 @@ class TravelAllowanceMasterController extends Controller
         $this->authorize('travel-allowance.create');
 
         $request->validate([
-            'vehicle_type' => 'required|in:0,1',
+            'vehicle_type' => 'required|in:1,2',
             'amount'       => 'required|numeric|min:0'
         ]);
 
@@ -60,7 +60,7 @@ class TravelAllowanceMasterController extends Controller
         $this->authorize('travel-allowance.edit');
 
         $request->validate([
-            'vehicle_type' => 'required|in:0,1',
+            'vehicle_type' => 'required|in:1,2',
             'amount'       => 'required|numeric|min:0'
         ]);
 

@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\S3Controller;
 use App\Http\Controllers\Api\Users\BdoDropDownController;
 use App\Http\Controllers\Api\FabricatorAccountingApiController;
+use App\Http\Controllers\Api\BdoCallController;
 
 
 use App\Http\Controllers\Api\InvoiceResponseController;
@@ -57,13 +58,19 @@ Route::prefix('fabricator')->group(function () {
 Route::post('/digital-marketing-leads', [DigitalMarketingLeadController::class, 'store']);
 
 
+    Route::get('bdm/consolidated-report', [ReportController::class, 'getBdmConsolidatedReport']);
 
 
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/leads/site-identification', [LeadController::class, 'storeSiteIdentification']);
     Route::get('/leads/view', [LeadController::class, 'getLeadsByUser']);
+    Route::get('/leads/full-details/view', [LeadController::class, 'getLeadFullDetails']);
+    Route::get('/bdo/contact-details', [LeadController::class, 'getBdoContactDetails']);
+
+
     Route::post('/leads/new', [LeadController::class, 'storeOrConvertToNewLead']);
+    Route::post('/leads/cross-selling', [LeadController::class, 'createCrossSellingLead']);
     Route::post('/leads/{id}/followup', [LeadController::class, 'addFollowUp']);
 
     Route::post('/leads/schedule', [LeadController::class, 'storeSchedule']);
@@ -148,6 +155,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('bdo/tour-plan-calendar', [LeadController::class, 'getBdoTourPlanCalendar']);
         Route::post('bdo/view-tour-plan', [LeadController::class, 'viewBdoTourPlan']);
+        Route::post('bdo/dashboard', [LeadController::class, 'getBdoDashboard']);
+        Route::post('bdo/planned-list', [LeadController::class, 'getPlannedList']);
+        Route::post('bdo/visited-list', [LeadController::class, 'getVisitedList']);
+        Route::post('bdo/pending-list', [LeadController::class, 'getPendingList']);
+
 
 
 
@@ -177,7 +189,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     Route::post('/bdm-calls/store', [BdmCallController::class, 'store']);
-    Route::get('/bdm-calls/list', [BdmCallController::class, 'list']); // Pass ?user_id=12
+    Route::get('/bdm-calls/list', [BdmCallController::class, 'list']); 
+
+    Route::post('/bdo-calls/store', [BdoCallController::class, 'store']);
+    Route::get('/bdo-calls/list', [BdoCallController::class, 'list']); 
 
     Route::post('fabricator-stock-management/store', [FabricatorStockManagementController::class, 'store']);
     Route::get('fabricator-stock-management/list', [FabricatorStockManagementController::class, 'list']);

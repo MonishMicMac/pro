@@ -74,6 +74,15 @@ class Lead extends Model
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Relationship for Cross-Selling details
+     */
+    public function digitalLead()
+    {
+        // Assumes your model is named DigitalMarketingLead and foreign key is lead_id
+        return $this->hasOne(DigitalMarketingLead::class, 'lead_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

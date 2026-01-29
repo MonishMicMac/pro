@@ -19,9 +19,348 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\UserAttendance;
+use App\Models\Account;
+use App\Models\Fabricator;
+
 
 class LeadController extends Controller
 {
+
+
+    /**
+     * Get BDO Dashboard Data
+     */
+    public function getBdoDashboard(Request $request)
+    {
+        // 1. Validate Inputs
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            $userId = $request->user_id;
+            $date = Carbon::now('Asia/Kolkata')->toDateString(); 
+
+            // ====================================================
+            // 1. ATTENDANCE
+            // ====================================================
+            $attendance = \App\Models\UserAttendance::where('user_id', $userId)
+                ->where('date', $date)
+                ->first();
+
+            $attendanceData = [
+                'punch_in'  => $attendance && $attendance->punch_in_time ? true : false,
+                'punch_out' => $attendance && $attendance->punch_out_time ? true : false,
+                'intime'    => $attendance->punch_in_time ?? null,
+                'outtime'   => $attendance->punch_out_time ?? null,
+            ];
+
+            // ====================================================
+            // 2. VISIT SCHEDULE (Today's Activity)
+            // ====================================================
+            $visits = LeadVisit::where('user_id', $userId)
+                ->whereDate('schedule_date', $date)
+                ->get();
+
+            // Separate collections
+            $plannedVisits   = $visits->where('type', 'planned');
+            $unplannedVisits = $visits->where('type', 'unplanned');
+
+            $plannedTotal = $plannedVisits->count();
+            
+            // --- MODIFIED VISITED LOGIC ---
+            // Visited: MUST have both Intime AND Outtime
+            $visitedCount = $plannedVisits->filter(function ($visit) {
+                return !empty($visit->intime_time) && !empty($visit->out_time);
+            })->count();
+
+            // --- PENDING LOGIC (AS USUAL) ---
+            // Pending: outtime is empty (Not started yet)
+            $pendingCount = $plannedVisits->filter(function ($visit) {
+                return empty($visit->out_time);
+            })->count();
+            
+            $unplannedCount = $unplannedVisits->count();
+
+            // ====================================================
+            // 3. MY DATA (Total Ownership Counts)
+            // ====================================================
+            $myLeadsCount = Lead::where('user_id', $userId)->count();
+            $myAccountsCount = \App\Models\Account::where('user_id', $userId)->count();
+            $myFabricatorsCount = \App\Models\Fabricator::where('created_by', $userId)->count(); 
+
+            // ====================================================
+            // 4. RESPONSE
+            // ====================================================
+            $data = [
+                'attendance' => $attendanceData,
+
+                'today_schedule' => [
+                    'planned_total'   => $plannedTotal,
+                    'visited_count'   => $visitedCount,
+                    'pending_count'   => $pendingCount,
+                    'unplanned_count' => $unplannedCount,
+                ],
+
+                'my_summary' => [
+                    'total_leads'       => $myLeadsCount,
+                    'total_accounts'    => $myAccountsCount,
+                    'total_fabricators' => $myFabricatorsCount,
+                ]
+            ];
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'BDO Dashboard data retrieved successfully',
+                'data'    => $data
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getPlannedList(Request $request)
+    {
+        // 1. Validate
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            $today = Carbon::now('Asia/Kolkata')->toDateString();
+
+            // 2. Query: ALL Planned Visits
+            $visits = LeadVisit::with(['account', 'fabricator', 'lead'])
+                ->where('user_id', $request->user_id)
+                ->whereDate('schedule_date', $today)
+                ->where('type', 'planned') // STRICTLY PLANNED
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // 3. Format Data
+            $response = ['leads' => [], 'accounts' => [], 'fabricators' => []];
+
+            foreach ($visits as $visit) {
+                $commonData = [
+                    'id'          => $visit->id,
+                    'user_id'     => $visit->user_id,
+                    'visit_type'  => $visit->visit_type,
+                    'intime'      => $visit->intime_time,
+                    'outtime'     => $visit->out_time,
+                ];
+
+                if ($visit->visit_type == '1') {
+                    $response['accounts'][] = $commonData + [
+                        'account_id'    => $visit->account_id,
+                        'account_name'  => $visit->account ? $visit->account->name : null,
+                        'address'       => $visit->account ? $visit->account->address : null,
+                        'mobile_number' => $visit->account ? $visit->account->mobile_number : null,
+                    ];
+                } elseif ($visit->visit_type == '2') {
+                    $response['leads'][] = $commonData + [
+                        'lead_id'       => $visit->lead_id,
+                        'lead_name'     => $visit->lead ? $visit->lead->name : null,
+                        'address'       => $visit->lead ? ($visit->lead->site_address ?? $visit->lead->address) : null,
+                        'mobile_number' => $visit->lead ? $visit->lead->phone_number : null,
+                        'lead_stage'    => $visit->lead ? $visit->lead->lead_stage : null,
+                        'lead_source'   => $visit->lead ? $visit->lead->lead_source : null,
+                    ];
+                } elseif ($visit->visit_type == '3') {
+                    $response['fabricators'][] = $commonData + [
+                        'fabricator_id'   => $visit->fabricator_id,
+                        'fabricator_name' => $visit->fabricator ? ($visit->fabricator->shop_name ?? $visit->fabricator->name) : null,
+                        'address'         => $visit->fabricator ? $visit->fabricator->address : null,
+                        'mobile_number'   => $visit->fabricator ? $visit->fabricator->mobile : null,
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Total Planned list retrieved successfully',
+                'count'   => $visits->count(),
+                'data'    => $response
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function getVisitedList(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            // Your dd() confirmed this gives 2026-01-28, which is correct
+            $today = Carbon::now('Asia/Kolkata')->toDateString();
+
+            $visits = LeadVisit::with(['account', 'fabricator', 'lead'])
+                ->where('user_id', $request->user_id)
+                ->whereDate('schedule_date', $today)
+                ->where('type', 'planned')
+                
+                // --- FIX IS HERE ---
+                // ONLY use whereNotNull. DELETE the checks for != ''
+                ->whereNotNull('intime_time')
+                ->whereNotNull('out_time')
+                // -------------------
+                
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $response = ['leads' => [], 'accounts' => [], 'fabricators' => []];
+
+            foreach ($visits as $visit) {
+                $commonData = [
+                    'id'          => $visit->id,
+                    'user_id'     => $visit->user_id,
+                    'visit_type'  => $visit->visit_type,
+                    'intime'      => $visit->intime_time,
+                    'outtime'     => $visit->out_time,
+                ];
+
+                if ($visit->visit_type == '1') {
+                    $response['accounts'][] = $commonData + [
+                        'account_id'    => $visit->account_id,
+                        'account_name'  => $visit->account ? $visit->account->name : null,
+                        'address'       => $visit->account ? $visit->account->address : null,
+                        'mobile_number' => $visit->account ? $visit->account->mobile_number : null,
+                    ];
+                } elseif ($visit->visit_type == '2') {
+                    $response['leads'][] = $commonData + [
+                        'lead_id'       => $visit->lead_id,
+                        'lead_name'     => $visit->lead ? $visit->lead->name : null,
+                        'address'       => $visit->lead ? ($visit->lead->site_address ?? $visit->lead->address) : null,
+                        'mobile_number' => $visit->lead ? $visit->lead->phone_number : null,
+                        'lead_stage'    => $visit->lead ? $visit->lead->lead_stage : null,
+                        'lead_source'   => $visit->lead ? $visit->lead->lead_source : null,
+                    ];
+                } elseif ($visit->visit_type == '3') {
+                    $response['fabricators'][] = $commonData + [
+                        'fabricator_id'   => $visit->fabricator_id,
+                        'fabricator_name' => $visit->fabricator ? ($visit->fabricator->shop_name ?? $visit->fabricator->name) : null,
+                        'address'         => $visit->fabricator ? $visit->fabricator->address : null,
+                        'mobile_number'   => $visit->fabricator ? $visit->fabricator->mobile : null,
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Visited list retrieved successfully',
+                'count'   => $visits->count(),
+                'data'    => $response
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function getPendingList(Request $request)
+    {
+        // 1. Validate
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'date'    => 'nullable|date_format:Y-m-d',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            // 2. Determine Date (Passed date OR Today)
+            $today = Carbon::now('Asia/Kolkata')->toDateString();
+            $date = $request->query('date', $today);
+
+            // 3. Query: ONLY Pending
+            $visits = LeadVisit::with(['account', 'fabricator', 'lead'])
+                ->where('user_id', $request->user_id)
+                ->whereDate('schedule_date', $date)
+                ->where('type', 'planned') // STRICTLY PLANNED
+                
+                // --- FIXED PENDING FILTER ---
+                // Since out_time is TIME type, just check for NULL.
+                ->whereNull('out_time')
+                // ----------------------------
+                
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // 4. Format Data
+            $response = ['leads' => [], 'accounts' => [], 'fabricators' => []];
+
+            foreach ($visits as $visit) {
+                $commonData = [
+                    'id'          => $visit->id,
+                    'user_id'     => $visit->user_id,
+                    'visit_type'  => $visit->visit_type,
+                    'intime'      => $visit->intime_time,
+                    'outtime'     => $visit->out_time,
+                ];
+
+                if ($visit->visit_type == '1') {
+                    $response['accounts'][] = $commonData + [
+                        'account_id'    => $visit->account_id,
+                        'account_name'  => $visit->account ? $visit->account->name : null,
+                        'address'       => $visit->account ? $visit->account->address : null,
+                        'mobile_number' => $visit->account ? $visit->account->mobile_number : null,
+                    ];
+                } elseif ($visit->visit_type == '2') {
+                    $response['leads'][] = $commonData + [
+                        'lead_id'       => $visit->lead_id,
+                        'lead_name'     => $visit->lead ? $visit->lead->name : null,
+                        'address'       => $visit->lead ? ($visit->lead->site_address ?? $visit->lead->address) : null,
+                        'mobile_number' => $visit->lead ? $visit->lead->phone_number : null,
+                        'lead_stage'    => $visit->lead ? $visit->lead->lead_stage : null,
+                        'lead_source'   => $visit->lead ? $visit->lead->lead_source : null,
+                    ];
+                } elseif ($visit->visit_type == '3') {
+                    $response['fabricators'][] = $commonData + [
+                        'fabricator_id'   => $visit->fabricator_id,
+                        'fabricator_name' => $visit->fabricator ? ($visit->fabricator->shop_name ?? $visit->fabricator->name) : null,
+                        'address'         => $visit->fabricator ? $visit->fabricator->address : null,
+                        'mobile_number'   => $visit->fabricator ? $visit->fabricator->mobile : null,
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Pending list retrieved successfully',
+                'count'   => $visits->count(),
+                'data'    => $response
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function storeSiteIdentification(Request $request)
     {
 
@@ -216,6 +555,156 @@ class LeadController extends Controller
             'count' => $leads->count(),
             'data' => $leads,
         ], 200);
+    }
+
+
+public function getLeadFullDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'lead_id' => 'required|exists:leads,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            $lead = \App\Models\Lead::with([
+                'measurements',       
+                'handoverPhotos',     
+                'fabricatorRequests', 
+                'digitalLead'         
+            ])->find($request->lead_id);
+
+            $currentStage = (int)$lead->lead_stage;
+            $labels = [
+                0 => 'Site Identification', 1 => 'Intro', 2 => 'FollowUp', 
+                3 => 'QuotePending', 4 => 'QuoteSent', 5 => 'Won', 
+                6 => 'SiteHandedOver', 7 => 'Lost'
+            ];
+
+            // 1. Initialize Base Data
+            $data = [
+                'lead_id' => $lead->id,
+                'current_stage' => $currentStage,
+                'current_stage_label' => $labels[$currentStage] ?? 'Unknown',
+            ];
+
+            // 2. Add Stages with Integer Keys
+            
+            // --- STAGE 0: SITE IDENTIFICATION ---
+            $data[0] = [
+                'stage_name'    => 'Site Identification',
+                'customer_name' => $lead->name,
+                'phone_number'  => $lead->phone_number ?? $lead->mobile_number,
+                'email'         => $lead->email,
+                'city'          => $lead->city,
+                'address'       => $lead->site_address ?? $lead->address,
+                'lead_source'   => $lead->lead_source,
+            ];
+
+            // --- STAGE 1: INTRO MEETING ---
+            if ($currentStage >= 1 && $currentStage != 7) {
+                $data[1] = [
+                    'stage_name'       => 'Intro Meeting Details',
+                    'customer_type'    => $lead->customer_type,
+                    'building_status'  => $lead->building_status,
+                    'no_of_windows'    => $lead->no_of_windows,
+                    'lead_temperature' => $lead->lead_temperature,
+                    'meeting_type'     => $lead->meeting_type,
+                ];
+            }
+
+            // --- STAGE 2: FOLLOW UP ---
+            if ($currentStage >= 2 && $currentStage != 7) {
+                $data[2] = [
+                    'stage_name'               => 'Detailed Requirements',
+                    'total_required_area_sqft' => $lead->total_required_area_sqft,
+                    'current_building_status'  => $lead->building_status,
+                    'brand_id'                 => $lead->brand_id,
+                ];
+            }
+
+            // --- STAGE 3: QUOTATION PENDING ---
+            if ($currentStage >= 3 && $currentStage != 7) {
+                $lastFabRequest = $lead->fabricatorRequests->last();
+                $data[3] = [
+                    'stage_name'    => 'Measurements & Fabricator',
+                    'fabricator_id' => $lastFabRequest ? $lastFabRequest->fabricator_id : null,
+                    'priority'      => $lead->priority,
+                    'notes'         => $lastFabRequest ? $lastFabRequest->notes : null,
+                    'measurements_list' => $lead->measurements->map(function($m) {
+                        return [
+                            'product' => $m->product,
+                            'width'   => $m->width_val . ' ' . $m->width_unit,
+                            'height'  => $m->height_val . ' ' . $m->height_unit,
+                            'qty'     => $m->qty,
+                            'sqft'    => $m->sqft
+                        ];
+                    })
+                ];
+            }
+
+            // --- STAGE 4: QUOTATION SENT ---
+            if ($currentStage >= 4 && $currentStage != 7) {
+                $data[4] = [
+                    'stage_name'          => 'Quotation Follow Up',
+                    'next_follow_up_date' => $lead->follow_up_date,
+                ];
+            }
+
+            // --- STAGE 5: WON ---
+            if ($currentStage == 5 || $currentStage == 6) {
+                $data[5] = [
+                    'stage_name'                 => 'Won Details',
+                    'won_date'                   => $lead->won_date,
+                    'expected_installation_date' => $lead->expected_installation_date,
+                    'advance_received'           => $lead->advance_received,
+                    'final_quotation_pdf'        => $lead->final_quotation_pdf ? url('storage/'.$lead->final_quotation_pdf) : null,
+                ];
+            }
+
+            // --- STAGE 6: HANDOVER ---
+            if ($currentStage == 6) {
+                $data[6] = [
+                    'stage_name'      => 'Site Handover',
+                    'installed_date'  => $lead->installed_date,
+                    'handovered_date' => $lead->handovered_date,
+                    'google_review'   => $lead->google_review,
+                    'site_photos'     => $lead->handoverPhotos->map(function($p) {
+                        return url('storage/'.$p->photo_path);
+                    })
+                ];
+            }
+
+            // --- STAGE 7: LOST ---
+            if ($currentStage == 7) {
+                $data[7] = [
+                    'stage_name'  => 'Lost Details',
+                    'lost_reason' => $lead->lost_type,
+                    'competitor'  => $lead->competitor,
+                ];
+            }
+
+            // --- CROSS SELLING ---
+            if ($lead->digitalLead && $lead->digitalLead->is_cross_selling == '1') {
+                $data['cross_sell'] = [
+                    'stage_name'        => 'Cross Selling',
+                    'brand_id'          => $lead->digitalLead->transftered_lead_using_brand,
+                    'remarks'           => $lead->digitalLead->transfter_remarks,
+                    'transfer_date'     => $lead->digitalLead->transfered_date,
+                ];
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Lead full details retrieved successfully',
+                'data' => $data
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1303,7 +1792,7 @@ public function leadCheckOut(Request $request)
     /**
      * Get Unplanned Schedule List for a User
      */
-    public function getUnplannedScheduleList(Request $request)
+public function getUnplannedScheduleList(Request $request)
     {
         // 1. Validate
         $validator = Validator::make($request->all(), [
@@ -1317,11 +1806,14 @@ public function leadCheckOut(Request $request)
             ], 422);
         }
 
-        // 2. Fetch records with relationships (Added 'with')
-        // We filter by 'type' => 'unplanned' specific to this method
+        // 2. Define Today
+        $today = Carbon::today()->toDateString(); // <--- ADD THIS
+
+        // 3. Fetch records
         $schedules = LeadVisit::with(['account', 'fabricator', 'lead'])
             ->where('user_id', $request->user_id)
             ->where('type', 'unplanned')
+            ->whereDate('schedule_date', $today) // <--- ADD THIS FILTER
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -2654,4 +3146,113 @@ public function leadCheckOut(Request $request)
             ]
         ], 200);
     }
+
+
+
+    public function createCrossSellingLead(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'lead_id'  => 'required|exists:leads,id',
+            'brand_id' => 'required|integer',
+            'remarks'  => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            $lead = Lead::findOrFail($request->lead_id);
+
+            // Create a new Digital Marketing Lead
+            $digitalLead = DigitalMarketingLead::create([
+                'date'                         => Carbon::now()->toDateString(),
+                'name'                         => $lead->name,
+                'phone_number'                 => $lead->phone_number,
+                'customer_type'                => $lead->customer_type,
+                'city'                         => $lead->city,
+                'building_status'              => $lead->building_status,
+                'building_type'                => $lead->type_of_building,
+                'zone'                         => $lead->zone,
+                'crossed_lead_id'              => $lead->id,
+                'transfered_by'                => $lead->user_id,
+                'transfered_date'              => Carbon::now(),
+                'transfter_remarks'            => $request->remarks,
+                'transftered_lead_using_brand' => $request->brand_id,
+                'stage'                        => 0, // Set to New Lead for telecaller
+                'is_cross_selling'             => '1',
+                'source'                       => 'CROSS_SELLING',
+            ]);
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Cross-selling lead created in Digital Marketing table successfully',
+                'data'    => $digitalLead
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get Simplified Contact Details (Leads, Accounts, Fabricators) for BDO
+     * Useful for dropdowns or quick contact lists.
+     */
+    public function getBdoContactDetails(Request $request)
+    {
+        // 1. Validate Input (Only user_id needed now)
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        $userId = $request->user_id;
+
+        // 2. Fetch LEADS
+        $leads = Lead::where('user_id', $userId)
+            ->select('id', 'name', 'phone_number as mobile_number')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 3. Fetch ACCOUNTS
+        $accounts = Account::where('user_id', $userId)
+            ->select('id', 'name', 'mobile_number')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 4. Fetch FABRICATORS
+        $fabricators = Fabricator::where('created_by', $userId)
+            ->select('id', 'shop_name as name', 'mobile')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($fab) {
+                return [
+                    'id' => $fab->id,
+                    'name' => $fab->name, // Aliased from shop_name
+                    'mobile_number' => $fab->mobile // Aliased to match others
+                ];
+            });
+
+        // 5. Return Consolidated Response
+        return response()->json([
+            'status'  => true,
+            'message' => 'Contact details retrieved successfully',
+            'data'    => [
+                'leads'       => $leads,
+                'accounts'    => $accounts,
+                'fabricators' => $fabricators
+            ]
+        ], 200);
+    }
+
 }
